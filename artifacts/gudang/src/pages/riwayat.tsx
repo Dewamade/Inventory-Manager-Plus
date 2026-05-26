@@ -65,20 +65,43 @@ export default function Riwayat() {
       toast({ title: "Tidak ada data", variant: "destructive" });
       return;
     }
-    const ws = XLSX.utils.json_to_sheet(effectiveRecords.map(h => ({
-      ID: h.id,
-      Tipe: h.type === 'in' ? 'Masuk' : 'Keluar',
-      Tanggal: format(new Date(h.createdAt), "yyyy-MM-dd HH:mm:ss"),
-      Material: h.materialName || '-',
-      BoxLabel: h.boxLabel || '-',
-      Operator: h.userName,
-      JumlahItem: h.serialNumbers.length,
-      SerialNumbers: h.serialNumbers.join(", ")
-    })));
+
+    // Expand: one row per serial number
+    const rows: object[] = [];
+    effectiveRecords.forEach(h => {
+      if (h.serialNumbers.length === 0) {
+        rows.push({
+          Tipe: h.type === 'in' ? 'Masuk' : 'Keluar',
+          Tanggal: format(new Date(h.createdAt), "yyyy-MM-dd HH:mm:ss"),
+          Material: h.materialName || '-',
+          BoxLabel: h.boxLabel || '-',
+          Operator: h.userName,
+          SerialNumber: '-',
+        });
+      } else {
+        h.serialNumbers.forEach((sn, idx) => {
+          rows.push({
+            Tipe: idx === 0 ? (h.type === 'in' ? 'Masuk' : 'Keluar') : '',
+            Tanggal: idx === 0 ? format(new Date(h.createdAt), "yyyy-MM-dd HH:mm:ss") : '',
+            Material: idx === 0 ? (h.materialName || '-') : '',
+            BoxLabel: idx === 0 ? (h.boxLabel || '-') : '',
+            Operator: idx === 0 ? h.userName : '',
+            SerialNumber: sn,
+          });
+        });
+      }
+    });
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Auto column widths
+    ws['!cols'] = [
+      { wch: 8 }, { wch: 22 }, { wch: 20 }, { wch: 16 }, { wch: 12 }, { wch: 30 }
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Riwayat");
     XLSX.writeFile(wb, `Riwayat_MIG_${format(new Date(), "yyyyMMdd")}.xlsx`);
-    toast({ title: `Export Excel berhasil`, description: `${effectiveRecords.length} record diekspor.` });
+    const totalSN = effectiveRecords.reduce((s, h) => s + h.serialNumbers.length, 0);
+    toast({ title: `Export Excel berhasil`, description: `${effectiveRecords.length} box, ${totalSN} serial number.` });
   };
 
   const handleExportPDF = () => {
@@ -89,33 +112,58 @@ export default function Riwayat() {
     toast({ title: "Membuat PDF...", description: "Harap tunggu sebentar." });
 
     const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Laporan Riwayat Transaksi - Manajemen Inventori Gudang", 14, 18);
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Total: ${effectiveRecords.length} record`, 14, 26);
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const lineH = 5;
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Laporan Riwayat Transaksi", margin, 18);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text(`Manajemen Inventori Gudang  |  Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}  |  ${effectiveRecords.length} record`, margin, 25);
     doc.setTextColor(0);
 
-    let y = 34;
-    effectiveRecords.forEach((h, i) => {
-      if (y > 270) { doc.addPage(); y = 20; }
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${i + 1}. [${h.type === 'in' ? 'MASUK' : 'KELUAR'}] ${h.boxLabel || '-'} — ${h.materialName || '-'}`, 14, y);
-      y += 5;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8.5);
-      doc.setTextColor(80);
-      doc.text(`${format(new Date(h.createdAt), "dd/MM/yyyy HH:mm")} | Operator: ${h.userName} | ${h.serialNumbers.length} item`, 14, y);
-      y += 4;
-      if (h.serialNumbers.length > 0) {
-        const snStr = `SN: ${h.serialNumbers.join(", ")}`;
-        const lines = doc.splitTextToSize(snStr, 180);
-        doc.text(lines, 14, y);
-        y += lines.length * 4.5;
+    let y = 33;
+
+    const checkPage = (needed: number) => {
+      if (y + needed > pageH - 10) {
+        doc.addPage();
+        y = 16;
       }
+    };
+
+    effectiveRecords.forEach((h, i) => {
+      checkPage(16);
+
+      // Box header row
+      doc.setFontSize(9.5);
+      doc.setFont("helvetica", "bold");
+      const tipe = h.type === 'in' ? 'MASUK' : 'KELUAR';
+      doc.text(`${i + 1}.  [${tipe}]  ${h.boxLabel || '-'}  —  ${h.materialName || '-'}`, margin, y);
+      y += lineH;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(90);
+      doc.text(`${format(new Date(h.createdAt), "dd/MM/yyyy HH:mm")}   Operator: ${h.userName}   (${h.serialNumbers.length} item)`, margin + 4, y);
+      y += lineH - 0.5;
       doc.setTextColor(0);
-      y += 4;
+
+      // Serial numbers — one per row
+      if (h.serialNumbers.length > 0) {
+        doc.setFontSize(8);
+        h.serialNumbers.forEach((sn, idx) => {
+          checkPage(5);
+          doc.setTextColor(50);
+          doc.text(`${String(idx + 1).padStart(3, ' ')}.  ${sn}`, margin + 6, y);
+          doc.setTextColor(0);
+          y += lineH - 0.5;
+        });
+      }
+
+      y += 3; // gap between boxes
     });
 
     doc.save(`Riwayat_MIG_${format(new Date(), "yyyyMMdd")}.pdf`);

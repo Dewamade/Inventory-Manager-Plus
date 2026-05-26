@@ -106,14 +106,11 @@ router.delete("/history/:id", async (req, res): Promise<void> => {
   }
 
   // Try to delete as scan-in first, then as scan-out
-  const [siDeleted] = await db
-    .delete(scanInTable)
-    .where(eq(scanInTable.id, params.data.id))
-    .returning();
-
-  if (siDeleted) {
-    // Also delete its items
+  // Must delete scan_items BEFORE scan_in (FK constraint: scan_items.scan_in_id → scan_in.id)
+  const [siRecord] = await db.select().from(scanInTable).where(eq(scanInTable.id, params.data.id));
+  if (siRecord) {
     await db.delete(scanItemsTable).where(eq(scanItemsTable.scanInId, params.data.id));
+    await db.delete(scanInTable).where(eq(scanInTable.id, params.data.id));
     res.sendStatus(204);
     return;
   }

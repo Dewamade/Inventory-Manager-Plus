@@ -1,7 +1,7 @@
 import { useGetDashboardSummary, useGetMaterialStats, useGetRecentActivity, useListMaterials } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ArrowDownRight, ArrowUpRight, Activity, Loader2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 
@@ -10,22 +10,24 @@ export default function Dashboard() {
 
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
   const { data: materials } = useListMaterials();
-
-  const { data: materialStatsRaw, isLoading: isLoadingStats } = useGetMaterialStats(
-    selectedMaterialId === "all" ? {} : { query: { materialId: selectedMaterialId } }
-  );
-
+  // Always fetch ALL material stats, filter client-side
+  const { data: allStats, isLoading: isLoadingStats } = useGetMaterialStats();
   const { data: recentActivity, isLoading: isLoadingActivity } = useGetRecentActivity({ limit: 10 });
 
-  const statsArray = Array.isArray(materialStatsRaw) ? materialStatsRaw : materialStatsRaw ? [materialStatsRaw] : [];
+  const statsArray = Array.isArray(allStats) ? allStats : allStats ? [allStats] : [];
+
+  const filteredStats = useMemo(() => {
+    if (selectedMaterialId === "all") return statsArray;
+    return statsArray.filter(s => s.materialId === selectedMaterialId);
+  }, [statsArray, selectedMaterialId]);
+
+  const singleStat = filteredStats.length === 1 ? filteredStats[0] : null;
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard Operations</h2>
-          <p className="text-muted-foreground mt-1">Real-time overview of warehouse inventory.</p>
-        </div>
+      <div>
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard Operations</h2>
+        <p className="text-muted-foreground mt-1">Real-time overview of warehouse inventory.</p>
       </div>
 
       {/* Global Summary Cards */}
@@ -64,9 +66,9 @@ export default function Dashboard() {
       <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-sidebar-border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 gap-4">
               <CardTitle className="text-xl font-semibold">Stok per Material</CardTitle>
-              <div className="w-[200px]">
+              <div className="w-[220px] shrink-0">
                 <Select
                   value={selectedMaterialId.toString()}
                   onValueChange={(val) => setSelectedMaterialId(val === "all" ? "all" : parseInt(val))}
@@ -77,7 +79,7 @@ export default function Dashboard() {
                   <SelectContent>
                     <SelectItem value="all">Semua Material</SelectItem>
                     {materials?.map((m) => (
-                      <SelectItem key={m.id} value={m.id.toString()}>{m.code} - {m.name}</SelectItem>
+                      <SelectItem key={m.id} value={m.id.toString()}>{m.code} — {m.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -85,29 +87,34 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {isLoadingStats ? (
-                <div className="h-[200px] flex items-center justify-center">
+                <div className="h-[160px] flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : statsArray.length === 0 ? (
+              ) : filteredStats.length === 0 ? (
                 <div className="text-center p-8 text-muted-foreground">Belum ada data</div>
-              ) : selectedMaterialId !== "all" && statsArray.length === 1 ? (
-                /* Single material view */
-                <div className="grid gap-6 sm:grid-cols-3 p-4 bg-muted/30 rounded-lg border border-border">
-                  <div className="flex flex-col items-center justify-center p-4 bg-card rounded-md shadow-sm border border-border">
-                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Stock</span>
-                    <span className="text-4xl font-bold font-mono text-primary">{statsArray[0].currentStock}</span>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-4 bg-card rounded-md shadow-sm border border-border">
-                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Masuk</span>
-                    <span className="text-4xl font-bold font-mono text-emerald-600 dark:text-emerald-500">{statsArray[0].totalIn}</span>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-4 bg-card rounded-md shadow-sm border border-border">
-                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Keluar</span>
-                    <span className="text-4xl font-bold font-mono text-amber-600 dark:text-amber-500">{statsArray[0].totalOut}</span>
+              ) : singleStat ? (
+                /* Single material — big 3-box display */
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-muted-foreground text-center uppercase tracking-wider">
+                    {singleStat.materialName}
+                  </p>
+                  <div className="grid gap-4 sm:grid-cols-3">
+                    <div className="flex flex-col items-center justify-center p-6 bg-primary/5 rounded-lg border border-primary/20">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Stock</span>
+                      <span className="text-5xl font-bold font-mono text-primary">{singleStat.currentStock}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center p-6 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-500/20">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Masuk</span>
+                      <span className="text-5xl font-bold font-mono text-emerald-600 dark:text-emerald-500">{singleStat.totalIn}</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center p-6 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-500/20">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Keluar</span>
+                      <span className="text-5xl font-bold font-mono text-amber-600 dark:text-amber-500">{singleStat.totalOut}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
-                /* All materials table view */
+                /* All materials — table */
                 <div className="rounded-lg border border-border overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
@@ -119,11 +126,13 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {statsArray.map((s) => (
-                        <tr key={s.materialId} className="hover:bg-muted/20 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="font-medium">{s.materialName}</div>
-                          </td>
+                      {filteredStats.map((s) => (
+                        <tr
+                          key={s.materialId}
+                          className="hover:bg-muted/20 transition-colors cursor-pointer"
+                          onClick={() => setSelectedMaterialId(s.materialId)}
+                        >
+                          <td className="py-3 px-4 font-medium">{s.materialName}</td>
                           <td className="py-3 px-4 text-center font-mono font-bold text-emerald-600 dark:text-emerald-500">{s.totalIn}</td>
                           <td className="py-3 px-4 text-center font-mono font-bold text-amber-600 dark:text-amber-500">{s.totalOut}</td>
                           <td className="py-3 px-4 text-center font-mono font-bold text-primary">{s.currentStock}</td>
@@ -131,6 +140,9 @@ export default function Dashboard() {
                       ))}
                     </tbody>
                   </table>
+                  <p className="text-xs text-muted-foreground text-center py-2 bg-muted/10">
+                    Klik baris untuk lihat detail material
+                  </p>
                 </div>
               )}
             </CardContent>
@@ -153,24 +165,24 @@ export default function Dashboard() {
               ) : recentActivity && recentActivity.length > 0 ? (
                 <div className="divide-y divide-border/50">
                   {recentActivity.map((activity) => (
-                    <div key={activity.id} className="p-4 flex items-start gap-4 hover:bg-muted/30 transition-colors">
-                      <div className={`mt-0.5 p-2 rounded-full ${activity.type === 'in' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                    <div key={activity.id} className="p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+                      <div className={`mt-0.5 p-2 rounded-full shrink-0 ${activity.type === 'in' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                         {activity.type === 'in' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                       </div>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-medium leading-none">
+                      <div className="flex-1 space-y-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium leading-none truncate">
                             {activity.type === 'in' ? 'Scan Masuk' : 'Scan Keluar'}
                           </p>
-                          <span className="text-xs text-muted-foreground font-mono">
+                          <span className="text-xs text-muted-foreground font-mono shrink-0">
                             {format(new Date(activity.createdAt), "HH:mm")}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          <span className="font-semibold text-foreground">{activity.count} items</span> — <span className="font-mono">{activity.materialName || 'Unknown'}</span>
+                        <p className="text-sm text-muted-foreground truncate">
+                          <span className="font-semibold text-foreground">{activity.count} item</span> — <span className="font-mono">{activity.materialName || '-'}</span>
                         </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Box: <span className="font-mono bg-muted px-1 py-0.5 rounded">{activity.boxLabel || 'N/A'}</span> · {activity.userName}
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-mono bg-muted px-1 py-0.5 rounded">{activity.boxLabel || 'N/A'}</span> · {activity.userName}
                         </p>
                       </div>
                     </div>
@@ -199,7 +211,7 @@ function MetricCard({ title, value, icon: Icon, isLoading, className = "", value
       <CardContent>
         {isLoading ? (
           <div className="h-8 flex items-center">
-            <Skeleton className="h-6 w-20" />
+            <div className="animate-pulse rounded-md bg-muted h-6 w-20" />
           </div>
         ) : (
           <div className={`text-3xl font-bold font-mono tracking-tight ${valueClass}`}>{value}</div>
@@ -207,8 +219,4 @@ function MetricCard({ title, value, icon: Icon, isLoading, className = "", value
       </CardContent>
     </Card>
   );
-}
-
-function Skeleton({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded-md bg-muted ${className}`} />;
 }
