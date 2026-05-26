@@ -3,20 +3,34 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Warehouse Inventory Management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: users
+    description: User management
+  - name: materials
+    description: Material management
+  - name: scan-in
+    description: Material incoming scan
+  - name: scan-out
+    description: Material outgoing scan
+  - name: history
+    description: Scan history
+  - name: dashboard
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +38,582 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResult"
+        "401":
+          description: Invalid credentials
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user from session token
+      parameters:
+        - name: authorization
+          in: header
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (master only)
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user (master only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /materials:
+    get:
+      operationId: listMaterials
+      tags: [materials]
+      summary: List all materials
+      responses:
+        "200":
+          description: List of materials
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Material"
+    post:
+      operationId: createMaterial
+      tags: [materials]
+      summary: Create a new material (master only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaterialInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Material"
+
+  /materials/{id}:
+    get:
+      operationId: getMaterial
+      tags: [materials]
+      summary: Get material by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Material
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Material"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateMaterial
+      tags: [materials]
+      summary: Update a material (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MaterialUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Material"
+    delete:
+      operationId: deleteMaterial
+      tags: [materials]
+      summary: Delete a material (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /scan-in:
+    get:
+      operationId: listScanIn
+      tags: [scan-in]
+      summary: List all scan-in sessions
+      parameters:
+        - name: materialId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of scan-in sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScanIn"
+    post:
+      operationId: createScanIn
+      tags: [scan-in]
+      summary: Create a scan-in session (start scanning)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanInInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanIn"
+
+  /scan-in/{id}:
+    get:
+      operationId: getScanIn
+      tags: [scan-in]
+      summary: Get scan-in session by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ScanIn session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanIn"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateScanIn
+      tags: [scan-in]
+      summary: Update scan-in session (e.g., finalize)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanInUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanIn"
+    delete:
+      operationId: deleteScanIn
+      tags: [scan-in]
+      summary: Delete a scan-in session (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /scan-in/{id}/items:
+    post:
+      operationId: addScanInItem
+      tags: [scan-in]
+      summary: Add a serial number to a scan-in session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanItemInput"
+      responses:
+        "201":
+          description: Item added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanItem"
+        "409":
+          description: Duplicate serial number
+
+  /scan-in/{id}/items/{itemId}:
+    delete:
+      operationId: deleteScanInItem
+      tags: [scan-in]
+      summary: Remove an item from a scan-in session
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /scan-out:
+    get:
+      operationId: listScanOut
+      tags: [scan-out]
+      summary: List all scan-out sessions
+      parameters:
+        - name: materialId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of scan-out sessions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ScanOut"
+    post:
+      operationId: createScanOut
+      tags: [scan-out]
+      summary: Create a scan-out session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanOutInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanOut"
+
+  /scan-out/{id}:
+    get:
+      operationId: getScanOut
+      tags: [scan-out]
+      summary: Get scan-out session by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ScanOut session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanOut"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteScanOut
+      tags: [scan-out]
+      summary: Delete a scan-out session (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /scan-out/{id}/items:
+    post:
+      operationId: addScanOutItem
+      tags: [scan-out]
+      summary: Process a QR code scan for material-out
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanOutItemInput"
+      responses:
+        "201":
+          description: Item processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanItem"
+        "404":
+          description: Serial number not found in stock
+        "409":
+          description: Already scanned out
+
+  /history:
+    get:
+      operationId: listHistory
+      tags: [history]
+      summary: List all scan history (in and out)
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [in, out]
+        - name: materialId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: userId
+          in: query
+          required: false
+          schema:
+            type: integer
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: History records
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HistoryRecord"
+
+  /history/{id}:
+    delete:
+      operationId: deleteHistory
+      tags: [history]
+      summary: Delete a history record (master only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [dashboard]
+      summary: Get dashboard summary — totals, material breakdown
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+
+  /dashboard/material-stats:
+    get:
+      operationId: getMaterialStats
+      tags: [dashboard]
+      summary: Get per-material in/out counts
+      parameters:
+        - name: materialId
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Material stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MaterialStat"
+
+  /dashboard/recent-activity:
+    get:
+      operationId: getRecentActivity
+      tags: [dashboard]
+      summary: Get recent scan activity feed
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent activity
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +624,272 @@ components:
       required:
         - status
 
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    AuthResult:
+      type: object
+      required: [token, user]
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+
+    User:
+      type: object
+      required: [id, username, role, createdAt]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+        role:
+          type: string
+          enum: [master, user]
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [username, password, role]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [master, user]
+
+    UserUpdate:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [master, user]
+
+    Material:
+      type: object
+      required: [id, name, code, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    MaterialInput:
+      type: object
+      required: [name, code]
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: string
+
+    MaterialUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        code:
+          type: string
+        description:
+          type: ["string", "null"]
+
+    ScanIn:
+      type: object
+      required: [id, materialId, materialName, boxLabel, status, userId, userName, createdAt, items]
+      properties:
+        id:
+          type: integer
+        materialId:
+          type: integer
+        materialName:
+          type: string
+        boxLabel:
+          type: string
+        status:
+          type: string
+          enum: [scanning, completed]
+        userId:
+          type: integer
+        userName:
+          type: string
+        qrCodeData:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        completedAt:
+          type: ["string", "null"]
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScanItem"
+
+    ScanInInput:
+      type: object
+      required: [materialId, userId]
+      properties:
+        materialId:
+          type: integer
+        userId:
+          type: integer
+
+    ScanInUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [scanning, completed]
+        qrCodeData:
+          type: string
+
+    ScanOut:
+      type: object
+      required: [id, userId, userName, createdAt, items]
+      properties:
+        id:
+          type: integer
+        userId:
+          type: integer
+        userName:
+          type: string
+        createdAt:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScanItem"
+
+    ScanOutInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: integer
+
+    ScanOutItemInput:
+      type: object
+      required: [qrData]
+      properties:
+        qrData:
+          type: string
+
+    ScanItem:
+      type: object
+      required: [id, serialNumber, createdAt]
+      properties:
+        id:
+          type: integer
+        serialNumber:
+          type: string
+        scanInId:
+          type: ["integer", "null"]
+        scanOutId:
+          type: ["integer", "null"]
+        createdAt:
+          type: string
+
+    ScanItemInput:
+      type: object
+      required: [serialNumber]
+      properties:
+        serialNumber:
+          type: string
+          minLength: 28
+          maxLength: 28
+
+    HistoryRecord:
+      type: object
+      required: [id, type, materialId, materialName, boxLabel, userId, userName, serialNumbers, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [in, out]
+        materialId:
+          type: ["integer", "null"]
+        materialName:
+          type: ["string", "null"]
+        boxLabel:
+          type: ["string", "null"]
+        userId:
+          type: integer
+        userName:
+          type: string
+        serialNumbers:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+
+    DashboardSummary:
+      type: object
+      required: [totalMaterialIn, totalMaterialOut, totalStock, totalMaterials, totalUsers]
+      properties:
+        totalMaterialIn:
+          type: integer
+        totalMaterialOut:
+          type: integer
+        totalStock:
+          type: integer
+        totalMaterials:
+          type: integer
+        totalUsers:
+          type: integer
+
+    MaterialStat:
+      type: object
+      required: [materialId, materialName, totalIn, totalOut, currentStock]
+      properties:
+        materialId:
+          type: integer
+        materialName:
+          type: string
+        totalIn:
+          type: integer
+        totalOut:
+          type: integer
+        currentStock:
+          type: integer
+
+    ActivityItem:
+      type: object
+      required: [id, type, materialName, boxLabel, userName, count, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [in, out]
+        materialName:
+          type: ["string", "null"]
+        boxLabel:
+          type: ["string", "null"]
+        userName:
+          type: string
+        count:
+          type: integer
+        createdAt:
+          type: string

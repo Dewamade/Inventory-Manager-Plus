@@ -44,6 +44,13 @@ export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
 }
 
+// Automatically use localStorage token if not explicitly provided
+if (typeof window !== "undefined") {
+  setAuthTokenGetter(() => {
+    return localStorage.getItem("token");
+  });
+}
+
 function isRequest(input: RequestInfo | URL): input is Request {
   return typeof Request !== "undefined" && input instanceof Request;
 }
