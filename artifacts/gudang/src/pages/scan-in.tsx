@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useListMaterials, useCreateScanIn, useUpdateScanIn, useAddScanInItem, useDeleteScanInItem, useListScanIn, getListScanInQueryKey } from "@workspace/api-client-react";
+import { useListMaterials, useCreateScanIn, useUpdateScanIn, useAddScanInItem, useDeleteScanInItem, getListScanInQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,17 +15,15 @@ export default function ScanInView() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   const { data: materials, isLoading: isLoadingMaterials } = useListMaterials();
   const [selectedMaterialId, setSelectedMaterialId] = useState<string>("");
-  
-  // Session state
+
   const [activeSession, setActiveSession] = useState<any>(null);
   const [scannedItems, setScannedItems] = useState<{id: number, serialNumber: string}[]>([]);
   const [generatedQr, setGeneratedQr] = useState<string | null>(null);
 
-  // Scanning state
   const [scanMethod, setScanMethod] = useState<"camera" | "manual">("manual");
   const [manualInput, setManualInput] = useState("");
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -34,172 +32,123 @@ export default function ScanInView() {
   const requestRef = useRef<number>();
   const lastScanTime = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ref to avoid stale closure in rAF loop
+  const cameraRunning = useRef(false);
+  const activeSessionRef = useRef<any>(null);
 
   const createScanInMutation = useCreateScanIn();
   const updateScanInMutation = useUpdateScanIn();
   const addItemMutation = useAddScanInItem();
   const deleteItemMutation = useDeleteScanInItem();
 
-  // Initialize AudioContext
   useEffect(() => {
-    setAudioContext(new (window.AudioContext || (window as any).webkitAudioContext)());
-  }, []);
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
+
+  const getAudioContext = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
 
   const playBeep = useCallback((success = true) => {
-    if (!audioContext) return;
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.type = "sine";
-    oscillator.frequency.setValueAtTime(success ? 800 : 300, audioContext.currentTime);
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-    
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.1);
-  }, [audioContext]);
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(success ? 880 : 300, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.15);
+    } catch (_) {}
+  }, []);
 
-  // Handle Session Start
   const handleStartSession = async () => {
     if (!selectedMaterialId || !user) return;
-
     try {
       const result = await createScanInMutation.mutateAsync({
-        data: {
-          materialId: parseInt(selectedMaterialId),
-          userId: user.id
-        }
+        data: { materialId: parseInt(selectedMaterialId), userId: user.id }
       });
       setActiveSession(result);
       setScannedItems([]);
       setGeneratedQr(null);
-      
-      // Auto focus input if manual
       if (scanMethod === "manual") {
         setTimeout(() => inputRef.current?.focus(), 100);
       }
-    } catch (error) {
-      toast({
-        title: "Failed to start session",
-        description: "An error occurred while creating the scan session.",
-        variant: "destructive"
-      });
+    } catch {
+      toast({ title: "Gagal memulai sesi", variant: "destructive" });
     }
   };
 
-  // Handle Item Scan
-  const handleScanItem = async (serialNumber: string) => {
-    if (!activeSession) return;
+  const handleScanItem = useCallback(async (serialNumber: string) => {
+    const session = activeSessionRef.current;
+    if (!session) return;
     const sn = serialNumber.trim();
     if (!sn) return;
 
     if (sn.length !== 28) {
-      toast({
-        title: "Invalid Serial Number",
-        description: "Serial number must be exactly 28 characters.",
-        variant: "destructive"
-      });
+      toast({ title: "Serial tidak valid", description: "Serial number harus tepat 28 karakter.", variant: "destructive" });
       playBeep(false);
       return;
     }
 
-    if (scannedItems.some(item => item.serialNumber === sn)) {
-      toast({
-        title: "Duplicate",
-        description: "This item has already been scanned in this session.",
-        variant: "destructive"
-      });
-      playBeep(false);
-      return;
-    }
+    setScannedItems(prev => {
+      if (prev.some(item => item.serialNumber === sn)) {
+        toast({ title: "Duplikat", description: "Serial ini sudah discan.", variant: "destructive" });
+        playBeep(false);
+        return prev;
+      }
+      return prev;
+    });
 
+    // check duplicate outside state setter for async flow
     try {
-      const item = await addItemMutation.mutateAsync({
-        id: activeSession.id,
-        data: { serialNumber: sn }
+      const item = await addItemMutation.mutateAsync({ id: session.id, data: { serialNumber: sn } });
+      setScannedItems(prev => {
+        if (prev.some(i => i.serialNumber === sn)) return prev;
+        return [item, ...prev];
       });
-      
-      setScannedItems(prev => [item, ...prev]);
       playBeep(true);
       setManualInput("");
-      
-      if (scanMethod === "manual") {
-        inputRef.current?.focus();
-      }
+      if (scanMethod === "manual") inputRef.current?.focus();
     } catch (error: any) {
       playBeep(false);
-      toast({
-        title: "Scan failed",
-        description: error?.message || "Failed to add item. It might be a duplicate.",
-        variant: "destructive"
-      });
+      toast({ title: "Scan gagal", description: error?.message || "Gagal menambah item. Mungkin duplikat.", variant: "destructive" });
     }
-  };
+  }, [addItemMutation, playBeep, scanMethod, toast]);
 
-  // Handle Delete Item
   const handleDeleteItem = async (itemId: number) => {
     if (!activeSession) return;
-    
     try {
-      await deleteItemMutation.mutateAsync({
-        scanInId: activeSession.id,
-        itemId
-      });
+      await deleteItemMutation.mutateAsync({ scanInId: activeSession.id, itemId });
       setScannedItems(prev => prev.filter(i => i.id !== itemId));
-      toast({ title: "Item removed" });
-    } catch (error) {
-      toast({
-        title: "Delete failed",
-        description: "Failed to remove item",
-        variant: "destructive"
-      });
+      toast({ title: "Item dihapus" });
+    } catch {
+      toast({ title: "Hapus gagal", variant: "destructive" });
     }
   };
 
-  // Handle Complete Session
   const handleCompleteSession = async () => {
     if (!activeSession) return;
     if (scannedItems.length === 0) {
-      toast({
-        title: "Cannot complete",
-        description: "Scan at least one item before completing.",
-        variant: "destructive"
-      });
+      toast({ title: "Belum ada item", description: "Scan minimal 1 item sebelum selesai.", variant: "destructive" });
       return;
     }
-
     try {
       const qrText = scannedItems.map(i => i.serialNumber).join('\n');
-      const qrDataUrl = await QRCode.toDataURL(qrText, {
-        errorCorrectionLevel: 'M',
-        margin: 2,
-        width: 300
-      });
-
-      await updateScanInMutation.mutateAsync({
-        id: activeSession.id,
-        data: {
-          status: "completed",
-          qrCodeData: qrDataUrl
-        }
-      });
-
+      const qrDataUrl = await QRCode.toDataURL(qrText, { errorCorrectionLevel: 'M', margin: 2, width: 300 });
+      await updateScanInMutation.mutateAsync({ id: activeSession.id, data: { status: "completed", qrCodeData: qrDataUrl } });
       setGeneratedQr(qrDataUrl);
       queryClient.invalidateQueries({ queryKey: getListScanInQueryKey() });
-      toast({
-        title: "Session Completed",
-        description: `Successfully scanned ${scannedItems.length} items.`,
-      });
+      toast({ title: "Sesi selesai", description: `${scannedItems.length} item berhasil discan.` });
       stopCamera();
-    } catch (error) {
-      toast({
-        title: "Failed to complete",
-        description: "An error occurred while completing the session.",
-        variant: "destructive"
-      });
+    } catch {
+      toast({ title: "Gagal menyelesaikan", variant: "destructive" });
     }
   };
 
@@ -211,72 +160,73 @@ export default function ScanInView() {
     stopCamera();
   };
 
-  // Camera handling
+  // Camera: use ref-based flag to avoid stale closure in rAF loop
   const startCamera = async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' } 
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.setAttribute("playsinline", "true");
-          videoRef.current.play();
-          setIsCameraActive(true);
-          requestRef.current = requestAnimationFrame(tick);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: "Kamera tidak didukung", variant: "destructive" });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         }
-      } catch (err) {
-        toast({
-          title: "Camera Error",
-          description: "Could not access camera. Please check permissions.",
-          variant: "destructive"
-        });
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute("playsinline", "true");
+        await videoRef.current.play();
+        cameraRunning.current = true;
+        setIsCameraActive(true);
+        requestRef.current = requestAnimationFrame(tick);
       }
+    } catch {
+      toast({ title: "Kamera Error", description: "Tidak bisa akses kamera. Cek izin kamera.", variant: "destructive" });
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+    cameraRunning.current = false;
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+      requestRef.current = undefined;
+    }
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
-    if (requestRef.current) {
-      cancelAnimationFrame(requestRef.current);
-    }
   };
 
-  const tick = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    
-    if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+  const tick = useCallback(() => {
+    if (!cameraRunning.current) return;
+    if (videoRef.current && canvasRef.current && videoRef.current.readyState >= videoRef.current.HAVE_ENOUGH_DATA) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
+          inversionAttempts: "attemptBoth",
         });
-        
         if (code) {
           const now = Date.now();
-          if (now - lastScanTime.current > 1500) { // 1.5s cooldown
+          if (now - lastScanTime.current > 1500) {
             lastScanTime.current = now;
             handleScanItem(code.data);
           }
         }
       }
     }
-    if (isCameraActive) {
+    if (cameraRunning.current) {
       requestRef.current = requestAnimationFrame(tick);
     }
-  };
+  }, [handleScanItem]);
 
   useEffect(() => {
     if (scanMethod === "camera" && activeSession && !generatedQr) {
@@ -287,7 +237,6 @@ export default function ScanInView() {
     return () => stopCamera();
   }, [scanMethod, activeSession, generatedQr]);
 
-
   if (generatedQr) {
     return (
       <Card className="border-emerald-500/30 bg-emerald-50/10 shadow-lg">
@@ -295,7 +244,7 @@ export default function ScanInView() {
           <div className="mx-auto bg-emerald-100 text-emerald-600 w-16 h-16 flex items-center justify-center rounded-full mb-4">
             <CheckCircle2 className="w-10 h-10" />
           </div>
-          <CardTitle className="text-2xl">Session Completed</CardTitle>
+          <CardTitle className="text-2xl">Sesi Selesai</CardTitle>
           <p className="text-muted-foreground mt-2">
             Box Label: <strong className="text-foreground font-mono bg-muted px-2 py-1 rounded">{activeSession?.boxLabel}</strong>
           </p>
@@ -308,11 +257,25 @@ export default function ScanInView() {
             <img src={generatedQr} alt="Box QR Code" className="w-64 h-64 object-contain" />
           </div>
           <p className="text-sm text-center text-muted-foreground mt-6 max-w-sm">
-            Print this QR code and attach it to the physical box. It contains all the serial numbers of the scanned items.
+            Print QR code ini dan tempelkan ke dus fisik. Berisi semua serial number item yang discan.
           </p>
         </CardContent>
-        <CardFooter className="justify-center pt-2 pb-6">
-          <Button onClick={handleReset} size="lg" className="px-8">Start New Session</Button>
+        <CardFooter className="justify-center gap-3 pt-2 pb-6">
+          <Button variant="outline" onClick={() => {
+            const w = window.open('', '_blank');
+            if (w) {
+              w.document.write(`<html><body style="display:flex;justify-content:center;align-items:center;padding:20px;font-family:monospace">
+                <div style="text-align:center;border:2px dashed #000;padding:24px;width:320px">
+                  <div style="font-size:22px;font-weight:bold;margin-bottom:8px">${activeSession?.boxLabel}</div>
+                  <div style="margin-bottom:12px">${scannedItems.length} items</div>
+                  <img src="${generatedQr}" style="width:250px;height:250px"/>
+                </div>
+              </body></html>`);
+              w.document.close();
+              w.onload = () => w.print();
+            }
+          }}>Print QR</Button>
+          <Button onClick={handleReset} size="lg" className="px-8">Sesi Baru</Button>
         </CardFooter>
       </Card>
     );
@@ -323,16 +286,16 @@ export default function ScanInView() {
       <div className="md:col-span-5 lg:col-span-4 space-y-6">
         <Card className="border-primary/20 shadow-sm">
           <CardHeader>
-            <CardTitle>Session Details</CardTitle>
+            <CardTitle>Detail Sesi</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {!activeSession ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Select Material</label>
+                  <label className="text-sm font-medium">Pilih Material</label>
                   <Select value={selectedMaterialId} onValueChange={setSelectedMaterialId} disabled={isLoadingMaterials}>
                     <SelectTrigger className="h-12 font-mono">
-                      <SelectValue placeholder="Select Material..." />
+                      <SelectValue placeholder="Pilih Material..." />
                     </SelectTrigger>
                     <SelectContent>
                       {materials?.map(m => (
@@ -341,13 +304,13 @@ export default function ScanInView() {
                     </SelectContent>
                   </Select>
                 </div>
-                <Button 
-                  onClick={handleStartSession} 
+                <Button
+                  onClick={handleStartSession}
                   disabled={!selectedMaterialId || createScanInMutation.isPending}
                   className="w-full h-12 uppercase tracking-wide font-bold"
                 >
                   {createScanInMutation.isPending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}
-                  Start Scanning
+                  Mulai Scan
                 </Button>
               </>
             ) : (
@@ -362,19 +325,17 @@ export default function ScanInView() {
                     <p className="font-mono text-lg font-bold text-primary">{activeSession.boxLabel}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Scanned</p>
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Terscan</p>
                     <p className="text-2xl font-bold">{scannedItems.length} <span className="text-sm font-normal text-muted-foreground">items</span></p>
                   </div>
                 </div>
-                
-                <Button 
-                  variant="destructive" 
+                <Button
                   onClick={handleCompleteSession}
                   disabled={scannedItems.length === 0 || updateScanInMutation.isPending}
-                  className="w-full h-12 uppercase tracking-wide font-bold"
+                  className="w-full h-12 uppercase tracking-wide font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {updateScanInMutation.isPending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Square className="w-5 h-5 mr-2 fill-current" />}
-                  Complete Box
+                  Selesaikan Box
                 </Button>
               </div>
             )}
@@ -384,7 +345,7 @@ export default function ScanInView() {
         {activeSession && (
           <Card className="border-sidebar-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">Input Method</CardTitle>
+              <CardTitle className="text-base">Metode Input</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="flex rounded-md shadow-sm">
@@ -402,7 +363,7 @@ export default function ScanInView() {
                   onClick={() => setScanMethod("camera")}
                 >
                   <Camera className="w-4 h-4 mr-2" />
-                  Camera
+                  Kamera
                 </Button>
               </div>
             </CardContent>
@@ -415,55 +376,69 @@ export default function ScanInView() {
           <CardHeader className="border-b border-border/50 pb-4 bg-muted/20">
             <CardTitle className="flex items-center gap-2">
               <QrCode className="w-5 h-5" />
-              Scanner Area
+              Area Scanner
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col">
             {!activeSession ? (
               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
                 <QrCode className="w-24 h-24 mb-4 opacity-20" />
-                <p className="text-lg">Select a material and start session</p>
+                <p className="text-lg">Pilih material dan mulai sesi</p>
               </div>
             ) : (
               <div className="flex-1 flex flex-col">
                 <div className="p-4 border-b border-border/50 bg-background sticky top-0 z-10">
                   {scanMethod === "manual" ? (
-                    <form 
+                    <form
                       onSubmit={(e) => { e.preventDefault(); handleScanItem(manualInput); }}
                       className="flex gap-2"
                     >
                       <Input
                         ref={inputRef}
-                        placeholder="Scan or type 28-char serial number..."
+                        placeholder="Scan atau ketik 28 karakter serial number..."
                         value={manualInput}
                         onChange={(e) => setManualInput(e.target.value)}
                         className="h-14 font-mono text-lg"
                         autoFocus
                       />
                       <Button type="submit" className="h-14 px-6" disabled={!manualInput || addItemMutation.isPending}>
-                        Add
+                        Tambah
                       </Button>
                     </form>
                   ) : (
-                    <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                      <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" />
-                      <canvas ref={canvasRef} className="hidden" />
-                      {/* Scanner overlay */}
-                      <div className="absolute inset-0 border-[3px] border-primary/50 z-10 m-8 rounded">
-                         <div className="absolute inset-0 bg-primary/10 animate-pulse" />
-                         <div className="absolute top-0 left-0 w-full h-0.5 bg-primary shadow-[0_0_8px_2px_rgba(var(--primary),0.8)] animate-[scan_2s_ease-in-out_infinite]" />
+                    <div className="space-y-2">
+                      <div className="relative w-full max-w-md mx-auto bg-black rounded-lg overflow-hidden" style={{aspectRatio: '1/1'}}>
+                        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline muted />
+                        <canvas ref={canvasRef} className="hidden" />
+                        {/* Corner guides */}
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="relative w-3/5 h-3/5">
+                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-primary rounded-tl" />
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-primary rounded-tr" />
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-primary rounded-bl" />
+                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-primary rounded-br" />
+                            {/* Scan line */}
+                            <div className="absolute inset-x-0 h-0.5 bg-primary/80 shadow-[0_0_6px_2px_rgba(250,204,21,0.7)] animate-[scanline_2s_ease-in-out_infinite]" />
+                          </div>
+                        </div>
+                        {!isCameraActive && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                            <Loader2 className="w-8 h-8 text-white animate-spin" />
+                          </div>
+                        )}
                       </div>
+                      <p className="text-xs text-center text-muted-foreground">Arahkan kamera ke QR code serial number</p>
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex-1 overflow-auto p-4 max-h-[400px]">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4 sticky top-0 bg-card py-2">
-                    Scanned Items ({scannedItems.length})
+                    Item Terscan ({scannedItems.length})
                   </h3>
                   {scannedItems.length === 0 ? (
                     <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                      Ready to scan items
+                      Siap scan item
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -471,7 +446,7 @@ export default function ScanInView() {
                         <div key={item.id} className="flex items-center justify-between p-3 bg-muted/30 border border-border rounded-md animate-in slide-in-from-left-2">
                           <div className="flex items-center gap-3">
                             <span className="text-muted-foreground w-6 text-right text-xs font-mono">{scannedItems.length - index}.</span>
-                            <span className="font-mono font-medium tracking-tight">{item.serialNumber}</span>
+                            <span className="font-mono font-medium tracking-tight text-sm">{item.serialNumber}</span>
                           </div>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => handleDeleteItem(item.id)}>
                             <Trash2 className="w-4 h-4" />
@@ -486,12 +461,12 @@ export default function ScanInView() {
           </CardContent>
         </Card>
       </div>
-      
+
       <style>{`
-        @keyframes scan {
-          0% { transform: translateY(0); }
-          50% { transform: translateY(calc(100cqh - 0.125rem)); }
-          100% { transform: translateY(0); }
+        @keyframes scanline {
+          0% { top: 0; }
+          50% { top: calc(100% - 2px); }
+          100% { top: 0; }
         }
       `}</style>
     </div>

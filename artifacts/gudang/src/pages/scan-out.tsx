@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useCreateScanOut, useAddScanOutItem, useListScanOut, getListScanOutQueryKey } from "@workspace/api-client-react";
+import { useCreateScanOut, useAddScanOutItem, getListScanOutQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { QrCode, Trash2, Camera, Keyboard, CheckCircle2, Play, Square, Loader2, ArrowUpRight, Package } from "lucide-react";
+import { QrCode, Camera, Keyboard, CheckCircle2, Play, Square, Loader2, ArrowUpRight, Package } from "lucide-react";
 import jsQR from "jsqr";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -13,13 +13,11 @@ export default function ScanOutView() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
-  // Session state
   const [activeSession, setActiveSession] = useState<any>(null);
   const [scannedBoxes, setScannedBoxes] = useState<any[]>([]);
 
-  // Scanning state
   const [scanMethod, setScanMethod] = useState<"camera" | "manual">("manual");
   const [manualInput, setManualInput] = useState("");
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -28,143 +26,142 @@ export default function ScanOutView() {
   const requestRef = useRef<number>();
   const lastScanTime = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ref to avoid stale closure in rAF loop
+  const cameraRunning = useRef(false);
+  const activeSessionRef = useRef<any>(null);
 
   const createScanOutMutation = useCreateScanOut();
   const addItemMutation = useAddScanOutItem();
 
   useEffect(() => {
-    setAudioContext(new (window.AudioContext || (window as any).webkitAudioContext)());
-  }, []);
+    activeSessionRef.current = activeSession;
+  }, [activeSession]);
+
+  const getAudioContext = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    return audioContextRef.current;
+  };
 
   const playBeep = useCallback((success = true) => {
-    if (!audioContext) return;
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    oscillator.type = success ? "sine" : "sawtooth";
-    oscillator.frequency.setValueAtTime(success ? 800 : 200, audioContext.currentTime);
-    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + (success ? 0.1 : 0.3));
-    
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.3);
-  }, [audioContext]);
+    try {
+      const ctx = getAudioContext();
+      const oscillator = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+      oscillator.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      oscillator.type = success ? "sine" : "sawtooth";
+      oscillator.frequency.setValueAtTime(success ? 880 : 250, ctx.currentTime);
+      gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (success ? 0.15 : 0.3));
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.3);
+    } catch (_) {}
+  }, []);
 
   const handleStartSession = async () => {
     if (!user) return;
     try {
-      const result = await createScanOutMutation.mutateAsync({
-        data: { userId: user.id }
-      });
+      const result = await createScanOutMutation.mutateAsync({ data: { userId: user.id } });
       setActiveSession(result);
       setScannedBoxes([]);
-      if (scanMethod === "manual") {
-        setTimeout(() => inputRef.current?.focus(), 100);
-      }
-    } catch (error) {
-      toast({
-        title: "Failed to start session",
-        variant: "destructive"
-      });
+      if (scanMethod === "manual") setTimeout(() => inputRef.current?.focus(), 100);
+    } catch {
+      toast({ title: "Gagal memulai sesi", variant: "destructive" });
     }
   };
 
-  const handleScanBox = async (qrData: string) => {
-    if (!activeSession) return;
+  const handleScanBox = useCallback(async (qrData: string) => {
+    const session = activeSessionRef.current;
+    if (!session) return;
     const data = qrData.trim();
     if (!data) return;
 
     try {
-      // The backend expects the raw QR data string (which contains newline-separated SNs)
-      const result = await addItemMutation.mutateAsync({
-        id: activeSession.id,
-        data: { qrData: data }
-      });
-      
-      // We don't get the full box info back easily from the generic item add, 
-      // but we know it succeeded. Let's just track the scan locally for UX.
+      await addItemMutation.mutateAsync({ id: session.id, data: { qrData: data } });
       const snCount = data.split('\n').filter(l => l.trim()).length;
-      
       setScannedBoxes(prev => [{
-        id: Date.now(), 
+        id: Date.now(),
         count: snCount,
-        data: data.slice(0, 20) + '...',
+        preview: data.slice(0, 28),
         time: new Date()
       }, ...prev]);
-      
       playBeep(true);
       setManualInput("");
-      toast({
-        title: "Box Scanned Successfully",
-        description: `${snCount} items marked for dispatch.`,
-      });
-      
-      if (scanMethod === "manual") {
-        inputRef.current?.focus();
-      }
+      toast({ title: "Box berhasil discan", description: `${snCount} item ditandai keluar.` });
+      if (scanMethod === "manual") inputRef.current?.focus();
     } catch (error: any) {
       playBeep(false);
       toast({
-        title: "Scan failed",
-        description: error?.message || "Invalid QR, box not found, or already dispatched.",
+        title: "Scan gagal",
+        description: error?.message || "QR tidak valid, box tidak ditemukan, atau sudah pernah dispatch.",
         variant: "destructive"
       });
     }
-  };
+  }, [addItemMutation, playBeep, scanMethod, toast]);
 
   const handleCompleteSession = () => {
     setActiveSession(null);
     setScannedBoxes([]);
     stopCamera();
     queryClient.invalidateQueries({ queryKey: getListScanOutQueryKey() });
-    toast({
-      title: "Dispatch Session Completed",
-    });
+    toast({ title: "Sesi dispatch selesai" });
   };
 
-  // Camera handling (simplified, same as scan-in)
   const startCamera = async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.setAttribute("playsinline", "true");
-          videoRef.current.play();
-          setIsCameraActive(true);
-          requestRef.current = requestAnimationFrame(tick);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: "Kamera tidak didukung", variant: "destructive" });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
         }
-      } catch (err) {
-        toast({ title: "Camera Error", variant: "destructive" });
+      });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute("playsinline", "true");
+        await videoRef.current.play();
+        cameraRunning.current = true;
+        setIsCameraActive(true);
+        requestRef.current = requestAnimationFrame(tick);
       }
+    } catch {
+      toast({ title: "Kamera Error", description: "Tidak bisa akses kamera. Cek izin kamera.", variant: "destructive" });
     }
   };
 
   const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      const stream = videoRef.current.srcObject as MediaStream;
-      stream.getTracks().forEach(track => track.stop());
+    cameraRunning.current = false;
+    if (requestRef.current) {
+      cancelAnimationFrame(requestRef.current);
+      requestRef.current = undefined;
+    }
+    if (videoRef.current?.srcObject) {
+      (videoRef.current.srcObject as MediaStream).getTracks().forEach(t => t.stop());
       videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
-    if (requestRef.current) cancelAnimationFrame(requestRef.current);
   };
 
-  const tick = () => {
-    if (!videoRef.current || !canvasRef.current) return;
-    if (videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+  const tick = useCallback(() => {
+    if (!cameraRunning.current) return;
+    if (videoRef.current && canvasRef.current && videoRef.current.readyState >= videoRef.current.HAVE_ENOUGH_DATA) {
       const canvas = canvasRef.current;
       const video = videoRef.current;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+        const code = jsQR(imageData.data, imageData.width, imageData.height, {
+          inversionAttempts: "attemptBoth",
+        });
         if (code) {
           const now = Date.now();
           if (now - lastScanTime.current > 2000) {
@@ -174,8 +171,10 @@ export default function ScanOutView() {
         }
       }
     }
-    if (isCameraActive) requestRef.current = requestAnimationFrame(tick);
-  };
+    if (cameraRunning.current) {
+      requestRef.current = requestAnimationFrame(tick);
+    }
+  }, [handleScanBox]);
 
   useEffect(() => {
     if (scanMethod === "camera" && activeSession) startCamera();
@@ -183,46 +182,44 @@ export default function ScanOutView() {
     return () => stopCamera();
   }, [scanMethod, activeSession]);
 
-
   return (
     <div className="grid gap-6 md:grid-cols-12">
       <div className="md:col-span-5 lg:col-span-4 space-y-6">
         <Card className="border-amber-500/30 shadow-sm">
           <CardHeader className="bg-amber-50/50 dark:bg-amber-950/20 border-b border-border/50">
             <CardTitle className="text-amber-700 dark:text-amber-500 flex items-center gap-2">
-              <ArrowUpRight className="w-5 h-5" /> Dispatch Session
+              <ArrowUpRight className="w-5 h-5" /> Sesi Dispatch
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4 pt-6">
             {!activeSession ? (
-              <Button 
-                onClick={handleStartSession} 
+              <Button
+                onClick={handleStartSession}
                 disabled={createScanOutMutation.isPending}
                 className="w-full h-14 uppercase tracking-wide font-bold bg-amber-600 hover:bg-amber-700 text-white"
               >
                 {createScanOutMutation.isPending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Play className="w-5 h-5 mr-2" />}
-                Start Dispatch
+                Mulai Dispatch
               </Button>
             ) : (
               <div className="space-y-4">
                 <div className="bg-muted/50 p-4 rounded-lg border border-border space-y-3">
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Boxes Dispatched</p>
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Dus Terdispatch</p>
                     <p className="text-3xl font-bold font-mono text-amber-600">{scannedBoxes.length}</p>
                   </div>
                   <div>
-                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Items Total</p>
+                    <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-1">Total Items</p>
                     <p className="text-xl font-bold">{scannedBoxes.reduce((acc, curr) => acc + curr.count, 0)}</p>
                   </div>
                 </div>
-                
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleCompleteSession}
                   className="w-full h-12 uppercase tracking-wide font-bold"
                 >
                   <Square className="w-5 h-5 mr-2 fill-current" />
-                  Finish Dispatch
+                  Selesai Dispatch
                 </Button>
               </div>
             )}
@@ -233,11 +230,11 @@ export default function ScanOutView() {
           <Card className="border-sidebar-border">
             <CardContent className="p-4">
               <div className="flex rounded-md shadow-sm">
-                <Button variant={scanMethod === "manual" ? "default" : "outline"} className="flex-1 rounded-r-none" onClick={() => setScanMethod("manual")}>
+                <Button variant={scanMethod === "manual" ? "default" : "outline"} className="flex-1 rounded-r-none h-12" onClick={() => setScanMethod("manual")}>
                   <Keyboard className="w-4 h-4 mr-2" /> Manual
                 </Button>
-                <Button variant={scanMethod === "camera" ? "default" : "outline"} className="flex-1 rounded-l-none" onClick={() => setScanMethod("camera")}>
-                  <Camera className="w-4 h-4 mr-2" /> Camera
+                <Button variant={scanMethod === "camera" ? "default" : "outline"} className="flex-1 rounded-l-none h-12" onClick={() => setScanMethod("camera")}>
+                  <Camera className="w-4 h-4 mr-2" /> Kamera
                 </Button>
               </div>
             </CardContent>
@@ -250,55 +247,69 @@ export default function ScanOutView() {
           <CardHeader className="border-b border-border/50 pb-4 bg-muted/20">
             <CardTitle className="flex items-center gap-2">
               <QrCode className="w-5 h-5" />
-              Scan Box QR Code
+              Scan QR Code Dus
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0 flex-1 flex flex-col">
             {!activeSession ? (
               <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8">
                 <Package className="w-24 h-24 mb-4 opacity-20" />
-                <p className="text-lg text-center max-w-sm">Start a dispatch session to scan completed boxes out of the warehouse.</p>
+                <p className="text-lg text-center max-w-sm">Mulai sesi dispatch untuk scan dus keluar gudang.</p>
               </div>
             ) : (
               <div className="flex-1 flex flex-col">
                 <div className="p-4 border-b border-border/50 bg-amber-50/30 dark:bg-amber-950/10">
                   {scanMethod === "manual" ? (
-                    <form 
+                    <form
                       onSubmit={(e) => { e.preventDefault(); handleScanBox(manualInput); }}
                       className="flex gap-2"
                     >
                       <Input
                         ref={inputRef}
-                        placeholder="Paste full QR data..."
+                        placeholder="Paste data QR dus..."
                         value={manualInput}
                         onChange={(e) => setManualInput(e.target.value)}
                         className="h-14 font-mono"
                         autoFocus
                       />
                       <Button type="submit" className="h-14 px-6 bg-amber-600 hover:bg-amber-700 text-white" disabled={!manualInput || addItemMutation.isPending}>
-                        Dispatch Box
+                        Dispatch
                       </Button>
                     </form>
                   ) : (
-                    <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden flex items-center justify-center">
-                      <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" />
-                      <canvas ref={canvasRef} className="hidden" />
-                      <div className="absolute inset-0 border-[3px] border-amber-500/50 z-10 m-8 rounded">
-                         <div className="absolute inset-0 bg-amber-500/10 animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="relative w-full max-w-md mx-auto bg-black rounded-lg overflow-hidden" style={{aspectRatio: '1/1'}}>
+                        <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" playsInline muted />
+                        <canvas ref={canvasRef} className="hidden" />
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="relative w-3/5 h-3/5">
+                            <div className="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-amber-400 rounded-tl" />
+                            <div className="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-amber-400 rounded-tr" />
+                            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-amber-400 rounded-bl" />
+                            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-amber-400 rounded-br" />
+                            <div className="absolute inset-x-0 h-0.5 bg-amber-400/80 shadow-[0_0_6px_2px_rgba(251,191,36,0.7)] animate-[scanline_2s_ease-in-out_infinite]" />
+                          </div>
+                        </div>
+                        {!isCameraActive && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                            <Loader2 className="w-8 h-8 text-white animate-spin" />
+                          </div>
+                        )}
                       </div>
+                      <p className="text-xs text-center text-muted-foreground">Arahkan kamera ke QR code pada dus</p>
                     </div>
                   )}
                 </div>
-                
+
                 <div className="flex-1 overflow-auto p-4">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
-                    Dispatched Boxes log
+                    Log Dispatch ({scannedBoxes.length} dus)
                   </h3>
                   <div className="space-y-3">
                     {scannedBoxes.length === 0 && (
-                       <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                         Awaiting box scan
-                       </div>
+                      <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border rounded-lg">
+                        Menunggu scan dus
+                      </div>
                     )}
                     {scannedBoxes.map((box) => (
                       <div key={box.id} className="flex items-center justify-between p-4 bg-card border border-border rounded-lg shadow-sm animate-in slide-in-from-left-2">
@@ -308,7 +319,7 @@ export default function ScanOutView() {
                           </div>
                           <div>
                             <p className="font-semibold">{box.count} items</p>
-                            <p className="text-xs text-muted-foreground font-mono">{box.data}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{box.preview}</p>
                           </div>
                         </div>
                         <CheckCircle2 className="w-5 h-5 text-emerald-500" />
@@ -321,6 +332,14 @@ export default function ScanOutView() {
           </CardContent>
         </Card>
       </div>
+
+      <style>{`
+        @keyframes scanline {
+          0% { top: 0; }
+          50% { top: calc(100% - 2px); }
+          100% { top: 0; }
+        }
+      `}</style>
     </div>
   );
 }

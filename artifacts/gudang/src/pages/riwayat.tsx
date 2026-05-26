@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useListHistory, useDeleteHistory } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { History, FileDown, Printer, Trash2, ArrowDownRight, ArrowUpRight, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
@@ -18,7 +18,8 @@ export default function Riwayat() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [filterType, setFilterType] = useState<"all" | "in" | "out">("all");
-  
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
   const { data: history, isLoading, refetch } = useListHistory({
     query: {
       type: filterType === "all" ? undefined : filterType
@@ -27,57 +28,107 @@ export default function Riwayat() {
 
   const deleteHistoryMutation = useDeleteHistory();
 
+  // Effective records = selected ones if any selected, else all
+  const effectiveRecords = useMemo(() => {
+    if (!history) return [];
+    if (selectedIds.size === 0) return history;
+    return history.filter(h => selectedIds.has(h.id));
+  }, [history, selectedIds]);
+
+  const allIds = useMemo(() => history?.map(h => h.id) ?? [], [history]);
+  const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id));
+  const someSelected = selectedIds.size > 0 && !allSelected;
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
+  };
+
+  const toggleOne = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectionLabel = selectedIds.size > 0
+    ? `${selectedIds.size} dipilih`
+    : `Semua (${history?.length ?? 0})`;
+
   const handleExportXLSX = () => {
-    if (!history || history.length === 0) return;
-    
-    const ws = XLSX.utils.json_to_sheet(history.map(h => ({
+    if (effectiveRecords.length === 0) {
+      toast({ title: "Tidak ada data", variant: "destructive" });
+      return;
+    }
+    const ws = XLSX.utils.json_to_sheet(effectiveRecords.map(h => ({
       ID: h.id,
-      Type: h.type === 'in' ? 'Masuk' : 'Keluar',
-      Date: format(new Date(h.createdAt), "yyyy-MM-dd HH:mm:ss"),
+      Tipe: h.type === 'in' ? 'Masuk' : 'Keluar',
+      Tanggal: format(new Date(h.createdAt), "yyyy-MM-dd HH:mm:ss"),
       Material: h.materialName || '-',
       BoxLabel: h.boxLabel || '-',
       Operator: h.userName,
-      ItemCount: h.serialNumbers.length,
+      JumlahItem: h.serialNumbers.length,
       SerialNumbers: h.serialNumbers.join(", ")
     })));
-    
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Riwayat");
     XLSX.writeFile(wb, `Riwayat_MIG_${format(new Date(), "yyyyMMdd")}.xlsx`);
+    toast({ title: `Export Excel berhasil`, description: `${effectiveRecords.length} record diekspor.` });
   };
 
   const handleExportPDF = () => {
-    if (!history || history.length === 0) return;
-    toast({ title: "Exporting PDF...", description: "This might take a moment." });
-    
-    // Simple PDF implementation
+    if (effectiveRecords.length === 0) {
+      toast({ title: "Tidak ada data", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Membuat PDF...", description: "Harap tunggu sebentar." });
+
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text("Laporan Riwayat Transaksi", 14, 20);
-    doc.setFontSize(10);
-    
-    let y = 30;
-    history.forEach((h, i) => {
+    doc.text("Laporan Riwayat Transaksi - Manajemen Inventori Gudang", 14, 18);
+    doc.setFontSize(9);
+    doc.setTextColor(120);
+    doc.text(`Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")} | Total: ${effectiveRecords.length} record`, 14, 26);
+    doc.setTextColor(0);
+
+    let y = 34;
+    effectiveRecords.forEach((h, i) => {
       if (y > 270) { doc.addPage(); y = 20; }
-      doc.text(`${i+1}. ${h.type === 'in' ? 'MASUK' : 'KELUAR'} | ${format(new Date(h.createdAt), "yyyy-MM-dd HH:mm")} | Box: ${h.boxLabel || '-'} | Operator: ${h.userName}`, 14, y);
-      y += 6;
-      doc.setTextColor(100);
-      const snStr = h.serialNumbers.join(", ");
-      const lines = doc.splitTextToSize(`SN: ${snStr}`, 180);
-      doc.text(lines, 14, y);
-      y += lines.length * 5 + 4;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i + 1}. [${h.type === 'in' ? 'MASUK' : 'KELUAR'}] ${h.boxLabel || '-'} — ${h.materialName || '-'}`, 14, y);
+      y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(80);
+      doc.text(`${format(new Date(h.createdAt), "dd/MM/yyyy HH:mm")} | Operator: ${h.userName} | ${h.serialNumbers.length} item`, 14, y);
+      y += 4;
+      if (h.serialNumbers.length > 0) {
+        const snStr = `SN: ${h.serialNumbers.join(", ")}`;
+        const lines = doc.splitTextToSize(snStr, 180);
+        doc.text(lines, 14, y);
+        y += lines.length * 4.5;
+      }
       doc.setTextColor(0);
+      y += 4;
     });
-    
+
     doc.save(`Riwayat_MIG_${format(new Date(), "yyyyMMdd")}.pdf`);
   };
 
   const handlePrintQR = async () => {
-    const inRecords = history?.filter(h => h.type === 'in' && h.serialNumbers.length > 0);
-    if (!inRecords || inRecords.length === 0) {
-      toast({ title: "No data", description: "No Scan-In records to print.", variant: "destructive" });
+    const inRecords = effectiveRecords.filter(h => h.type === 'in' && h.serialNumbers.length > 0);
+    if (inRecords.length === 0) {
+      toast({ title: "Tidak ada data Scan Masuk", description: "Pilih record Scan Masuk untuk cetak QR.", variant: "destructive" });
       return;
     }
+
+    toast({ title: "Membuat halaman cetak...", description: `Menyiapkan ${inRecords.length} QR label.` });
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) return;
@@ -85,47 +136,56 @@ export default function Riwayat() {
     let html = `
       <html>
       <head>
-        <title>Print QR Box Labels</title>
+        <title>Cetak QR Box Labels</title>
         <style>
-          body { font-family: monospace; padding: 20px; }
-          .card { border: 2px dashed #000; padding: 20px; margin-bottom: 20px; text-align: center; width: 300px; display: inline-block; margin-right: 20px; break-inside: avoid; }
-          .title { font-size: 24px; font-weight: bold; margin-bottom: 10px; }
-          .meta { font-size: 14px; margin-bottom: 10px; }
-          img { width: 250px; height: 250px; }
-          @media print { .card { page-break-inside: avoid; } }
+          * { box-sizing: border-box; }
+          body { font-family: monospace; padding: 16px; background: #fff; }
+          .grid { display: flex; flex-wrap: wrap; gap: 16px; }
+          .card { border: 2px dashed #333; padding: 16px; text-align: center; width: 280px; break-inside: avoid; }
+          .box-label { font-size: 20px; font-weight: bold; margin-bottom: 6px; }
+          .meta { font-size: 12px; color: #555; margin-bottom: 10px; line-height: 1.5; }
+          .qr img { width: 220px; height: 220px; }
+          @media print {
+            .card { page-break-inside: avoid; }
+            @page { margin: 10mm; }
+          }
         </style>
       </head>
-      <body>
+      <body><div class="grid">
     `;
 
     for (const record of inRecords) {
       const qrText = record.serialNumbers.join('\n');
-      const dataUrl = await QRCode.toDataURL(qrText, { margin: 1 });
+      const dataUrl = await QRCode.toDataURL(qrText, { margin: 1, width: 220 });
       html += `
         <div class="card">
-          <div class="title">${record.boxLabel}</div>
-          <div class="meta">${record.materialName}<br>Items: ${record.serialNumbers.length}<br>${format(new Date(record.createdAt), "dd/MM/yyyy HH:mm")}</div>
-          <img src="${dataUrl}" />
+          <div class="box-label">${record.boxLabel || '-'}</div>
+          <div class="meta">
+            ${record.materialName || '-'}<br/>
+            ${record.serialNumbers.length} item<br/>
+            ${format(new Date(record.createdAt), "dd/MM/yyyy HH:mm")}<br/>
+            Operator: ${record.userName}
+          </div>
+          <div class="qr"><img src="${dataUrl}" /></div>
         </div>
       `;
     }
 
-    html += `</body></html>`;
+    html += `</div></body></html>`;
     printWindow.document.write(html);
     printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.print();
-    };
+    printWindow.onload = () => { printWindow.focus(); printWindow.print(); };
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm("Are you sure you want to delete this record? This action cannot be undone.")) {
+    if (confirm("Yakin ingin menghapus record ini? Tindakan ini tidak bisa dibatalkan.")) {
       try {
         await deleteHistoryMutation.mutateAsync({ id });
-        toast({ title: "Record deleted" });
+        setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+        toast({ title: "Record dihapus" });
         refetch();
-      } catch (error) {
-        toast({ title: "Delete failed", variant: "destructive" });
+      } catch {
+        toast({ title: "Gagal menghapus", variant: "destructive" });
       }
     }
   };
@@ -136,19 +196,28 @@ export default function Riwayat() {
         <div>
           <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
             <History className="w-8 h-8 text-primary" />
-            Transaction History
+            Riwayat Transaksi
           </h2>
-          <p className="text-muted-foreground mt-1">View, filter, and export all warehouse transactions.</p>
+          <p className="text-muted-foreground mt-1">
+            {selectedIds.size > 0
+              ? <span className="text-primary font-medium">{selectedIds.size} record dipilih — export/cetak hanya yang dipilih</span>
+              : "Pilih baris untuk export/cetak selektif, atau biarkan kosong untuk semua."}
+          </p>
         </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={handlePrintQR}>
-            <Printer className="w-4 h-4 mr-2" /> Print QR Labels
+
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedIds.size > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="text-muted-foreground text-xs">
+              Batal pilih
+            </Button>
+          )}
+          <Button variant="outline" onClick={handlePrintQR} title={`Cetak QR (${selectionLabel})`}>
+            <Printer className="w-4 h-4 mr-2" /> Cetak QR
           </Button>
-          <Button variant="outline" onClick={handleExportPDF}>
+          <Button variant="outline" onClick={handleExportPDF} title={`Export PDF (${selectionLabel})`}>
             <FileDown className="w-4 h-4 mr-2" /> PDF
           </Button>
-          <Button variant="default" onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-700 text-white" title={`Export Excel (${selectionLabel})`}>
             <FileDown className="w-4 h-4 mr-2" /> Excel
           </Button>
         </div>
@@ -156,81 +225,110 @@ export default function Riwayat() {
 
       <Card className="border-sidebar-border shadow-sm">
         <CardHeader className="py-4 border-b border-border/50 bg-muted/20">
-          <div className="flex items-center justify-between">
-             <CardTitle className="text-base font-semibold">Filters</CardTitle>
-             <div className="flex gap-2">
-               <Select value={filterType} onValueChange={(v: any) => setFilterType(v)}>
-                 <SelectTrigger className="w-[150px]">
-                   <SelectValue placeholder="Type" />
-                 </SelectTrigger>
-                 <SelectContent>
-                   <SelectItem value="all">All Types</SelectItem>
-                   <SelectItem value="in">Masuk (In)</SelectItem>
-                   <SelectItem value="out">Keluar (Out)</SelectItem>
-                 </SelectContent>
-               </Select>
-             </div>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <CardTitle className="text-base font-semibold">
+              Filter & Tabel
+              {selectedIds.size > 0 && (
+                <Badge variant="secondary" className="ml-2 text-primary border-primary/30">
+                  {selectedIds.size} dipilih
+                </Badge>
+              )}
+            </CardTitle>
+            <div className="flex gap-2">
+              <Select value={filterType} onValueChange={(v: any) => { setFilterType(v); setSelectedIds(new Set()); }}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="Tipe" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Tipe</SelectItem>
+                  <SelectItem value="in">Masuk</SelectItem>
+                  <SelectItem value="out">Keluar</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="p-12 flex justify-center items-center text-muted-foreground">
-              <Loader2 className="w-8 h-8 animate-spin mr-2" /> Loading history...
+              <Loader2 className="w-8 h-8 animate-spin mr-2" /> Memuat riwayat...
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
-                    <TableHead className="w-[120px]">Type</TableHead>
-                    <TableHead>Date & Time</TableHead>
+                    <TableHead className="w-10 pl-4">
+                      <Checkbox
+                        checked={allSelected}
+                        onCheckedChange={toggleAll}
+                        aria-label="Pilih semua"
+                        className={someSelected ? "data-[state=unchecked]:bg-primary/20" : ""}
+                      />
+                    </TableHead>
+                    <TableHead className="w-[100px]">Tipe</TableHead>
+                    <TableHead>Tanggal & Waktu</TableHead>
                     <TableHead>Box Label</TableHead>
                     <TableHead>Material</TableHead>
                     <TableHead className="text-center">Items</TableHead>
                     <TableHead>Operator</TableHead>
-                    {user?.role === 'master' && <TableHead className="text-right">Actions</TableHead>}
+                    {user?.role === 'master' && <TableHead className="text-right pr-4">Aksi</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {history?.length === 0 ? (
+                  {!history || history.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
-                        No transactions found
+                      <TableCell colSpan={user?.role === 'master' ? 8 : 7} className="h-32 text-center text-muted-foreground">
+                        Tidak ada transaksi ditemukan
                       </TableCell>
                     </TableRow>
                   ) : (
-                    history?.map((record) => (
-                      <TableRow key={record.id} className="hover:bg-muted/10">
-                        <TableCell>
-                          {record.type === 'in' ? (
-                            <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 px-2 py-1">
-                              <ArrowDownRight className="w-3 h-3 mr-1" /> Masuk
-                            </Badge>
-                          ) : (
-                            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 px-2 py-1">
-                              <ArrowUpRight className="w-3 h-3 mr-1" /> Keluar
-                            </Badge>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-sm">{format(new Date(record.createdAt), "dd MMM yyyy, HH:mm")}</TableCell>
-                        <TableCell className="font-mono font-medium">{record.boxLabel || '-'}</TableCell>
-                        <TableCell>{record.materialName || '-'}</TableCell>
-                        <TableCell className="text-center font-bold">{record.serialNumbers.length}</TableCell>
-                        <TableCell>{record.userName}</TableCell>
-                        {user?.role === 'master' && (
-                          <TableCell className="text-right">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8"
-                              onClick={() => handleDelete(record.id)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                    history.map((record) => {
+                      const isSelected = selectedIds.has(record.id);
+                      return (
+                        <TableRow
+                          key={record.id}
+                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10'}`}
+                          onClick={() => toggleOne(record.id)}
+                        >
+                          <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleOne(record.id)}
+                              aria-label="Pilih baris ini"
+                            />
                           </TableCell>
-                        )}
-                      </TableRow>
-                    ))
+                          <TableCell>
+                            {record.type === 'in' ? (
+                              <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 hover:bg-emerald-100 px-2 py-1 whitespace-nowrap">
+                                <ArrowDownRight className="w-3 h-3 mr-1" /> Masuk
+                              </Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 hover:bg-amber-100 px-2 py-1 whitespace-nowrap">
+                                <ArrowUpRight className="w-3 h-3 mr-1" /> Keluar
+                              </Badge>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-sm whitespace-nowrap">{format(new Date(record.createdAt), "dd MMM yyyy, HH:mm")}</TableCell>
+                          <TableCell className="font-mono font-medium">{record.boxLabel || '-'}</TableCell>
+                          <TableCell>{record.materialName || '-'}</TableCell>
+                          <TableCell className="text-center font-bold">{record.serialNumbers.length}</TableCell>
+                          <TableCell>{record.userName}</TableCell>
+                          {user?.role === 'master' && (
+                            <TableCell className="text-right pr-4" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive h-8 w-8"
+                                onClick={() => handleDelete(record.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>
