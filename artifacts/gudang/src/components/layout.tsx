@@ -63,12 +63,10 @@ export function Layout({ children }: LayoutProps) {
       {/* Sidebar */}
       <aside className="w-64 bg-sidebar text-sidebar-foreground border-r flex flex-col hidden md:flex">
         <div className="p-4 border-b border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground flex items-center gap-3">
-          <div className="bg-white text-sidebar-primary p-1.5 rounded text-xl font-bold font-mono">
-            MIG
-          </div>
+          <div className="bg-white text-sidebar-primary p-1.5 rounded text-xl font-bold font-mono">SGP</div>
           <div>
-            <h1 className="font-bold leading-tight">Manajemen Inventori</h1>
-            <p className="text-xs opacity-80 uppercase tracking-widest">Gudang</p>
+            <h1 className="font-bold leading-tight">Sistem Gudang </h1>
+            <p className="text-xs opacity-80 uppercase tracking-widest">pemaron</p>
           </div>
         </div>
         
@@ -110,7 +108,6 @@ export function Layout({ children }: LayoutProps) {
           </Button>
         </div>
       </aside>
-
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
