@@ -452,6 +452,7 @@ export const GetMaterialStatsQueryParams = zod.object({
 
 export const GetMaterialStatsResponseItem = zod.object({
   "materialId": zod.number(),
+  "materialCode": zod.string(),
   "materialName": zod.string(),
   "totalIn": zod.number(),
   "totalOut": zod.number(),

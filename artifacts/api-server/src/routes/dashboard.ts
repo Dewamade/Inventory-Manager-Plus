@@ -85,6 +85,7 @@ router.get("/dashboard/material-stats", async (req, res): Promise<void> => {
 
     stats.push({
       materialId: material.id,
+      materialCode: material.code,
       materialName: material.name,
       totalIn,
       totalOut,

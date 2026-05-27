@@ -871,10 +871,12 @@ components:
 
     MaterialStat:
       type: object
-      required: [materialId, materialName, totalIn, totalOut, currentStock]
+      required: [materialId, materialCode, materialName, totalIn, totalOut, currentStock]
       properties:
         materialId:
           type: integer
+        materialCode:
+          type: string
         materialName:
           type: string
         totalIn:

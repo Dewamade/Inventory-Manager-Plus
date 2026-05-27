@@ -8,6 +8,7 @@
 
 export interface MaterialStat {
   materialId: number;
+  materialCode: string;
   materialName: string;
   totalIn: number;
   totalOut: number;
