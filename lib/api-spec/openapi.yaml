@@ -830,13 +830,16 @@ components:
 
     HistoryRecord:
       type: object
-      required: [id, type, materialId, materialName, boxLabel, userId, userName, serialNumbers, createdAt]
+      required: [id, type, source, materialId, materialName, boxLabel, userId, userName, serialNumbers, count, createdAt]
       properties:
         id:
           type: integer
         type:
           type: string
           enum: [in, out]
+        source:
+          type: string
+          enum: [scan, non-scan]
         materialId:
           type: ["integer", "null"]
         materialName:
@@ -851,6 +854,10 @@ components:
           type: array
           items:
             type: string
+        count:
+          type: integer
+        satuan:
+          type: string
         createdAt:
           type: string
 

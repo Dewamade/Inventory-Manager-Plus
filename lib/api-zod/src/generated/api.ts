@@ -412,12 +412,15 @@ export const ListHistoryQueryParams = zod.object({
 export const ListHistoryResponseItem = zod.object({
   "id": zod.number(),
   "type": zod.enum(['in', 'out']),
+  "source": zod.enum(['scan', 'non-scan']),
   "materialId": zod.number().nullable(),
   "materialName": zod.string().nullable(),
   "boxLabel": zod.string().nullable(),
   "userId": zod.number(),
   "userName": zod.string(),
   "serialNumbers": zod.array(zod.string()),
+  "count": zod.number(),
+  "satuan": zod.string().optional(),
   "createdAt": zod.string()
 })
 export const ListHistoryResponse = zod.array(ListHistoryResponseItem)

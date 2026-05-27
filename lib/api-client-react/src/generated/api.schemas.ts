@@ -196,9 +196,18 @@ export const HistoryRecordType = {
   out: 'out',
 } as const;
 
+export type HistoryRecordSource = typeof HistoryRecordSource[keyof typeof HistoryRecordSource];
+
+
+export const HistoryRecordSource = {
+  scan: 'scan',
+  'non-scan': 'non-scan',
+} as const;
+
 export interface HistoryRecord {
   id: number;
   type: HistoryRecordType;
+  source: HistoryRecordSource;
   /** @nullable */
   materialId: number | null;
   /** @nullable */
@@ -208,6 +217,8 @@ export interface HistoryRecord {
   userId: number;
   userName: string;
   serialNumbers: string[];
+  count: number;
+  satuan?: string;
   createdAt: string;
 }
 

@@ -30,7 +30,7 @@ export default function Riwayat() {
   const filteredHistory = useMemo(() => {
     if (!history) return [];
     if (filterSource === "all") return history;
-    return history.filter(h => (h as any).source === filterSource);
+    return history.filter(h => h.source === filterSource);
   }, [history, filterSource]);
 
   const effectiveRecords = useMemo(() => {
@@ -71,9 +71,9 @@ export default function Riwayat() {
 
     const rows: object[] = [];
     effectiveRecords.forEach(h => {
-      const isNonScan = (h as any).source === "non-scan";
-      const count = isNonScan ? ((h as any).count ?? 0) : h.serialNumbers.length;
-      const satuan = isNonScan ? ((h as any).satuan ?? "") : "";
+      const isNonScan = h.source === "non-scan";
+      const count = isNonScan ? (h.count ?? 0) : h.serialNumbers.length;
+      const satuan = isNonScan ? (h.satuan ?? "") : "";
 
       if (isNonScan) {
         rows.push({
@@ -155,9 +155,9 @@ export default function Riwayat() {
 
     effectiveRecords.forEach((h, i) => {
       checkPage(16);
-      const isNonScan = (h as any).source === "non-scan";
-      const count = isNonScan ? ((h as any).count ?? 0) : h.serialNumbers.length;
-      const satuan = isNonScan ? ((h as any).satuan ?? "") : "item";
+      const isNonScan = h.source === "non-scan";
+      const count = isNonScan ? (h.count ?? 0) : h.serialNumbers.length;
+      const satuan = isNonScan ? (h.satuan ?? "") : "item";
       const tipe = isNonScan
         ? (h.type === 'in' ? 'MATERIAL MASUK' : 'MATERIAL KELUAR')
         : (h.type === 'in' ? 'SCAN MASUK' : 'SCAN KELUAR');
@@ -366,10 +366,10 @@ export default function Riwayat() {
                   ) : (
                     filteredHistory.map((record) => {
                       const isSelected = selectedIds.has(record.id);
-                      const isNonScan = (record as any).source === "non-scan";
+                      const isNonScan = record.source === "non-scan";
                       const isIn = record.type === "in";
                       const qty = isNonScan
-                        ? `${(record as any).count ?? 0} ${(record as any).satuan ?? ""}`
+                        ? `${record.count ?? 0} ${record.satuan ?? ""}`
                         : `${record.serialNumbers.length} item`;
 
                       return (

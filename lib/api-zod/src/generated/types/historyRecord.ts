@@ -5,11 +5,13 @@
  * Warehouse Inventory Management API
  * OpenAPI spec version: 0.1.0
  */
+import type { HistoryRecordSource } from './historyRecordSource';
 import type { HistoryRecordType } from './historyRecordType';
 
 export interface HistoryRecord {
   id: number;
   type: HistoryRecordType;
+  source: HistoryRecordSource;
   /** @nullable */
   materialId: number | null;
   /** @nullable */
@@ -19,5 +21,7 @@ export interface HistoryRecord {
   userId: number;
   userName: string;
   serialNumbers: string[];
+  count: number;
+  satuan?: string;
   createdAt: string;
 }

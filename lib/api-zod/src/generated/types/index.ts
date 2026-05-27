@@ -14,6 +14,7 @@ export * from './getMaterialStatsParams';
 export * from './getRecentActivityParams';
 export * from './healthStatus';
 export * from './historyRecord';
+export * from './historyRecordSource';
 export * from './historyRecordType';
 export * from './listHistoryParams';
 export * from './listHistoryType';
