@@ -6,6 +6,7 @@ import Dashboard from "@/pages/dashboard";
 import Scan from "@/pages/scan";
 import Riwayat from "@/pages/riwayat";
 import Master from "@/pages/master";
+import Backup from "@/pages/backup";
 
 function ProtectedRoute({ component: Component, roles = ["user", "master"] }: { component: any, roles?: string[] }) {
   const { user, isLoading } = useAuth();
@@ -42,6 +43,7 @@ export default function AppRouter() {
             <Route path="/riwayat" component={() => <ProtectedRoute component={Riwayat} />} />
             <Route path="/master" component={() => <ProtectedRoute component={Master} roles={["master"]} />} />
             <Route path="/master/:path*" component={() => <ProtectedRoute component={Master} roles={["master"]} />} />
+            <Route path="/backup" component={() => <ProtectedRoute component={Backup} roles={["master"]} />} />
             <Route>404 Not Found</Route>
           </Switch>
         </Layout>
