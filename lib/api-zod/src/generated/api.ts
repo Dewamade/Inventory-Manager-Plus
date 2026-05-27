@@ -415,6 +415,7 @@ export const ListHistoryResponseItem = zod.object({
   "source": zod.enum(['scan', 'non-scan']),
   "materialId": zod.number().nullable(),
   "materialName": zod.string().nullable(),
+  "materialCode": zod.string().nullable(),
   "boxLabel": zod.string().nullable(),
   "userId": zod.number(),
   "userName": zod.string(),
