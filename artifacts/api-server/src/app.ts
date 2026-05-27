@@ -41,6 +41,7 @@ async function setupDatabase() {
         name TEXT NOT NULL,
         code TEXT NOT NULL UNIQUE,
         description TEXT,
+        kategori TEXT NOT NULL DEFAULT 'scan',
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
@@ -86,6 +87,11 @@ async function setupDatabase() {
         user_id INTEGER NOT NULL REFERENCES users(id),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+    `);
+
+    // Migrate: tambah kolom baru jika belum ada (aman untuk database lama)
+    await pool.query(`
+      ALTER TABLE materials ADD COLUMN IF NOT EXISTS kategori TEXT NOT NULL DEFAULT 'scan';
     `);
 
     logger.info("Database tables ready");
