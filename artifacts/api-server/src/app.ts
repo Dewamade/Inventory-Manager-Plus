@@ -22,10 +22,57 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Auto-seed admin user on startup
-async function seedAdmin() {
+async function setupDatabase() {
   try {
     const { pool } = await import("@workspace/db");
+
+    // Create tables if they don't exist
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        password_hash TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'user',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS materials (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        code TEXT NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS scan_in (
+        id SERIAL PRIMARY KEY,
+        material_id INTEGER NOT NULL REFERENCES materials(id),
+        box_label TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'scanning',
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        qr_code_data TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        completed_at TIMESTAMPTZ
+      );
+
+      CREATE TABLE IF NOT EXISTS scan_items (
+        id SERIAL PRIMARY KEY,
+        serial_number TEXT NOT NULL UNIQUE,
+        scan_in_id INTEGER REFERENCES scan_in(id),
+        scan_out_id INTEGER,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS scan_out (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users(id),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    logger.info("Database tables ready");
+
+    // Seed admin user if no users exist
     const existing = await pool.query("SELECT id FROM users LIMIT 1");
     if (existing.rows.length === 0) {
       const hash = crypto.createHash("sha256").update("admin123" + "gudang_salt_2024").digest("hex");
@@ -36,11 +83,11 @@ async function seedAdmin() {
       logger.info("Admin user seeded: admin / admin123");
     }
   } catch (err) {
-    logger.error({ err }, "Seed failed");
+    logger.error({ err }, "Database setup failed");
   }
 }
 
-seedAdmin();
+setupDatabase();
 
 app.use("/api", router);
 
