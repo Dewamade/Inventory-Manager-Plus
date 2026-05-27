@@ -10,11 +10,13 @@ import type { ActivityItemType } from './activityItemType';
 export interface ActivityItem {
   id: number;
   type: ActivityItemType;
+  source?: 'scan' | 'non-scan';
   /** @nullable */
   materialName: string | null;
   /** @nullable */
   boxLabel: string | null;
   userName: string;
   count: number;
+  satuan?: string;
   createdAt: string;
 }

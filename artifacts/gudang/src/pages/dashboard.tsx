@@ -1,6 +1,6 @@
 import { useGetDashboardSummary, useGetMaterialStats, useGetRecentActivity, useListMaterials } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ArrowDownRight, ArrowUpRight, Activity, Loader2 } from "lucide-react";
+import { Package, ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -10,7 +10,6 @@ export default function Dashboard() {
 
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
   const { data: materials } = useListMaterials();
-  // Always fetch ALL material stats, filter client-side
   const { data: allStats, isLoading: isLoadingStats } = useGetMaterialStats();
   const { data: recentActivity, isLoading: isLoadingActivity } = useGetRecentActivity({ limit: 10 });
 
@@ -91,8 +90,7 @@ export default function Dashboard() {
               ) : filteredStats.length === 0 ? (
                 <div className="text-center p-8 text-muted-foreground">Belum ada data</div>
               ) : singleStat ? (
-                /* Single material — big 3-box display */
-                (<div className="space-y-3">
+                <div className="space-y-3">
                   <p className="text-sm font-semibold text-muted-foreground text-center uppercase tracking-wider">
                     {singleStat.materialName}
                   </p>
@@ -110,10 +108,9 @@ export default function Dashboard() {
                       <span className="text-5xl font-bold font-mono text-amber-600 dark:text-amber-500">{singleStat.totalOut}</span>
                     </div>
                   </div>
-                </div>)
+                </div>
               ) : (
-                /* All materials — table */
-                (<div className="rounded-lg border border-border overflow-hidden">
+                <div className="rounded-lg border border-border overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
                       <tr>
@@ -141,7 +138,7 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground text-center py-2 bg-muted/10">
                     Klik baris untuk lihat detail material
                   </p>
-                </div>)
+                </div>
               )}
             </CardContent>
           </Card>
@@ -162,29 +159,49 @@ export default function Dashboard() {
                 </div>
               ) : recentActivity && recentActivity.length > 0 ? (
                 <div className="divide-y divide-border/50">
-                  {recentActivity.map((activity) => (
-                    <div key={activity.id} className="p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors">
-                      <div className={`mt-0.5 p-2 rounded-full shrink-0 ${activity.type === 'in' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
-                        {activity.type === 'in' ? <ArrowDownRight className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1 space-y-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium leading-none truncate">
-                            {activity.type === 'in' ? 'Scan Masuk' : 'Scan Keluar'}
-                          </p>
-                          <span className="text-xs text-muted-foreground font-mono shrink-0">
-                            {format(new Date(activity.createdAt), "HH:mm")}
-                          </span>
+                  {recentActivity.map((activity) => {
+                    const isNonScan = activity.source === "non-scan";
+                    const isIn = activity.type === "in";
+                    const IconComp = isNonScan
+                      ? (isIn ? PackagePlus : PackageMinus)
+                      : (isIn ? ArrowDownRight : ArrowUpRight);
+                    const label = isNonScan
+                      ? (isIn ? "Material Masuk" : "Material Keluar")
+                      : (isIn ? "Scan Masuk" : "Scan Keluar");
+                    const colorClass = isIn
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
+
+                    return (
+                      <div key={activity.id} className="p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+                        <div className={`mt-0.5 p-2 rounded-full shrink-0 ${colorClass}`}>
+                          <IconComp className="w-4 h-4" />
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          <span className="font-semibold text-foreground">{activity.count} item</span> — <span className="font-mono">{activity.materialName || '-'}</span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-mono bg-muted px-1 py-0.5 rounded">{activity.boxLabel || 'N/A'}</span> · {activity.userName}
-                        </p>
+                        <div className="flex-1 space-y-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-medium leading-none truncate">{label}</p>
+                            <span className="text-xs text-muted-foreground font-mono shrink-0">
+                              {format(new Date(activity.createdAt), "HH:mm")}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground truncate">
+                            <span className="font-semibold text-foreground">
+                              {activity.count} {isNonScan && (activity as any).satuan ? (activity as any).satuan : "item"}
+                            </span>{" "}
+                            — <span className="font-mono">{activity.materialName || "-"}</span>
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {isNonScan ? (
+                              <span className="font-mono bg-muted px-1 py-0.5 rounded">Non-Scan</span>
+                            ) : (
+                              <span className="font-mono bg-muted px-1 py-0.5 rounded">{activity.boxLabel || "N/A"}</span>
+                            )}
+                            {" · "}{activity.userName}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="p-8 text-center text-sm text-muted-foreground">

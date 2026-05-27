@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { IRouter } from "express";
-import { db, scanInTable, scanOutTable, scanItemsTable, materialsTable, usersTable } from "@workspace/db";
+import { db, scanInTable, scanOutTable, scanItemsTable, materialsTable, usersTable, nonScanMasukTable, nonScanKeluarTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   GetDashboardSummaryResponse,
@@ -18,14 +18,12 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const allMaterials = await db.select().from(materialsTable);
   const allUsers = await db.select().from(usersTable);
 
-  // Count total serial numbers in (scan_in completed items)
   let totalIn = 0;
   for (const si of allScanIns) {
     const items = await db.select().from(scanItemsTable).where(eq(scanItemsTable.scanInId, si.id));
     totalIn += items.length;
   }
 
-  // Count total serial numbers out
   let totalOut = 0;
   for (const so of allScanOuts) {
     const items = await db.select().from(scanItemsTable).where(eq(scanItemsTable.scanOutId, so.id));
@@ -60,12 +58,10 @@ router.get("/dashboard/material-stats", async (req, res): Promise<void> => {
       }
     }
 
-    // Count out for items that came from this material's scan-in sessions
     const scanInIds = scanIns.map((s) => s.id);
     let totalOut = 0;
     for (const siId of scanInIds) {
-      const outItems = await db.select().from(scanItemsTable)
-        .where(eq(scanItemsTable.scanInId, siId));
+      const outItems = await db.select().from(scanItemsTable).where(eq(scanItemsTable.scanInId, siId));
       totalOut += outItems.filter((i) => i.scanOutId != null).length;
     }
 
@@ -87,7 +83,7 @@ router.get("/dashboard/recent-activity", async (req, res): Promise<void> => {
 
   const activities: any[] = [];
 
-  // Recent scan-in completions
+  // Scan-in completions
   const recentScanIns = await db.select().from(scanInTable)
     .where(eq(scanInTable.status, "completed"))
     .orderBy(scanInTable.createdAt)
@@ -101,6 +97,7 @@ router.get("/dashboard/recent-activity", async (req, res): Promise<void> => {
     activities.push({
       id: si.id,
       type: "in" as const,
+      source: "scan" as const,
       materialName: material?.name ?? null,
       boxLabel: si.boxLabel,
       userName: user?.username ?? "Unknown",
@@ -109,7 +106,7 @@ router.get("/dashboard/recent-activity", async (req, res): Promise<void> => {
     });
   }
 
-  // Recent scan-outs
+  // Scan-outs
   const recentScanOuts = await db.select().from(scanOutTable)
     .orderBy(scanOutTable.createdAt)
     .limit(limit);
@@ -133,11 +130,59 @@ router.get("/dashboard/recent-activity", async (req, res): Promise<void> => {
     activities.push({
       id: so.id,
       type: "out" as const,
+      source: "scan" as const,
       materialName,
       boxLabel,
       userName: user?.username ?? "Unknown",
       count: items.length,
       createdAt: so.createdAt.toISOString(),
+    });
+  }
+
+  // Non-scan masuk
+  const nonScanMasukRows = await db.select().from(nonScanMasukTable)
+    .orderBy(nonScanMasukTable.createdAt)
+    .limit(limit);
+
+  for (const nm of nonScanMasukRows) {
+    const [material] = await db.select().from(materialsTable).where(eq(materialsTable.id, nm.materialId));
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, nm.userId));
+
+    activities.push({
+      id: nm.id + 1000000,
+      type: "in" as const,
+      source: "non-scan" as const,
+      materialName: material?.name ?? null,
+      boxLabel: null,
+      userName: user?.username ?? "Unknown",
+      count: nm.jumlah,
+      satuan: nm.satuan,
+      createdAt: nm.createdAt.toISOString(),
+    });
+  }
+
+  // Non-scan keluar
+  const nonScanKeluarRows = await db.select().from(nonScanKeluarTable)
+    .orderBy(nonScanKeluarTable.createdAt)
+    .limit(limit);
+
+  for (const nk of nonScanKeluarRows) {
+    const [material] = await db.select().from(materialsTable).where(eq(materialsTable.id, nk.materialId));
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, nk.userId));
+
+    const masukRows = await db.select().from(nonScanMasukTable).where(eq(nonScanMasukTable.materialId, nk.materialId));
+    const satuan = masukRows[masukRows.length - 1]?.satuan ?? "";
+
+    activities.push({
+      id: nk.id + 2000000,
+      type: "out" as const,
+      source: "non-scan" as const,
+      materialName: material?.name ?? null,
+      boxLabel: null,
+      userName: user?.username ?? "Unknown",
+      count: nk.jumlah,
+      satuan,
+      createdAt: nk.createdAt.toISOString(),
     });
   }
 
