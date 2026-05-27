@@ -38,7 +38,7 @@ app.use("/api", router);
 // Serve frontend static files
 const frontendPath = path.resolve(__dirname, "../../gudang/dist/public");
 app.use(express.static(frontendPath));
-app.get("*", (_req, res) => {
+app.get("/{*path}", (_req, res) => {
   res.sendFile(path.join(frontendPath, "index.html"));
 });
 
