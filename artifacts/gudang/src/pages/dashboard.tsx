@@ -1,9 +1,13 @@
 import { useGetMaterialStats, useGetRecentActivity, useListMaterials, useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus, Layers } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus, Layers, FileSpreadsheet, FileText } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | "all">("all");
@@ -21,6 +25,83 @@ export default function Dashboard() {
   }, [statsArray, selectedMaterialId]);
 
   const singleStat = filteredStats.length === 1 ? filteredStats[0] : null;
+  const { toast } = useToast();
+
+  const handleExportExcel = () => {
+    if (filteredStats.length === 0) {
+      toast({ title: "Tidak ada data untuk diekspor", variant: "destructive" });
+      return;
+    }
+    const label = selectedMaterialId === "all" ? "Semua" : filteredStats[0]?.materialName ?? "Material";
+    const rows = filteredStats.map(s => ({
+      "Kode": s.materialCode ?? "-",
+      "Nama Material": s.materialName,
+      "Total Masuk": s.totalIn,
+      "Total Keluar": s.totalOut,
+      "Stok Saat Ini": s.currentStock,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws["!cols"] = [{ wch: 14 }, { wch: 28 }, { wch: 14 }, { wch: 14 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Stok Material");
+    XLSX.writeFile(wb, `Stok_Material_${label}_${format(new Date(), "yyyyMMdd")}.xlsx`);
+    toast({ title: "Export Excel berhasil", description: `${rows.length} material.` });
+  };
+
+  const handleExportPDF = () => {
+    if (filteredStats.length === 0) {
+      toast({ title: "Tidak ada data untuk diekspor", variant: "destructive" });
+      return;
+    }
+    const label = selectedMaterialId === "all" ? "Semua Material" : filteredStats[0]?.materialName ?? "Material";
+    const doc = new jsPDF();
+    const margin = 14;
+    const pageW = doc.internal.pageSize.getWidth();
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Laporan Stok per Material", margin, 18);
+
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text(
+      `Gudang Pemaron  |  Filter: ${label}  |  Dicetak: ${format(new Date(), "dd/MM/yyyy HH:mm")}`,
+      margin, 25
+    );
+    doc.setTextColor(0);
+
+    // Table header
+    const cols = [{ label: "Material", x: margin, w: 70 }, { label: "Masuk", x: margin + 72, w: 28 }, { label: "Keluar", x: margin + 102, w: 28 }, { label: "Stok", x: margin + 132, w: 28 }];
+    let y = 34;
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y - 4, pageW - margin * 2, 8, "F");
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    cols.forEach(c => doc.text(c.label, c.x, y));
+    y += 7;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    filteredStats.forEach((s, i) => {
+      if (y > doc.internal.pageSize.getHeight() - 16) { doc.addPage(); y = 16; }
+      if (i % 2 === 0) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(margin, y - 4, pageW - margin * 2, 7, "F");
+      }
+      doc.text(s.materialName, cols[0].x, y);
+      doc.text(String(s.totalIn), cols[1].x, y);
+      doc.text(String(s.totalOut), cols[2].x, y);
+      doc.setFont("helvetica", "bold");
+      doc.text(String(s.currentStock), cols[3].x, y);
+      doc.setFont("helvetica", "normal");
+      y += 7;
+    });
+
+    const filename = `Stok_Material_${label.replace(/\s+/g, "_")}_${format(new Date(), "yyyyMMdd")}.pdf`;
+    doc.save(filename);
+    toast({ title: "Export PDF berhasil", description: `${filteredStats.length} material.` });
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -55,23 +136,45 @@ export default function Dashboard() {
         {/* Stok per Material */}
         <div className="lg:col-span-2">
           <Card className="border-border/60 shadow-sm h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
-              <CardTitle className="text-lg font-semibold">Stok per Material</CardTitle>
-              <div className="w-[210px] shrink-0">
-                <Select
-                  value={selectedMaterialId.toString()}
-                  onValueChange={(val) => setSelectedMaterialId(val === "all" ? "all" : parseInt(val))}
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40 gap-3 flex-wrap">
+              <CardTitle className="text-lg font-semibold shrink-0">Stok per Material</CardTitle>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-[200px] shrink-0">
+                  <Select
+                    value={selectedMaterialId.toString()}
+                    onValueChange={(val) => setSelectedMaterialId(val === "all" ? "all" : parseInt(val))}
+                  >
+                    <SelectTrigger className="h-9 text-sm">
+                      <SelectValue placeholder="Semua Material" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Material</SelectItem>
+                      {materials?.map((m) => (
+                        <SelectItem key={m.id} value={m.id.toString()}>{m.code} — {m.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:hover:bg-emerald-950/30"
+                  onClick={handleExportExcel}
+                  disabled={isLoadingStats || filteredStats.length === 0}
                 >
-                  <SelectTrigger className="h-9 text-sm">
-                    <SelectValue placeholder="Semua Material" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Material</SelectItem>
-                    {materials?.map((m) => (
-                      <SelectItem key={m.id} value={m.id.toString()}>{m.code} — {m.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Excel
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 text-rose-700 border-rose-300 hover:bg-rose-50 dark:text-rose-400 dark:border-rose-800 dark:hover:bg-rose-950/30"
+                  onClick={handleExportPDF}
+                  disabled={isLoadingStats || filteredStats.length === 0}
+                >
+                  <FileText className="w-4 h-4" />
+                  PDF
+                </Button>
               </div>
             </CardHeader>
             <CardContent className="pt-5">
