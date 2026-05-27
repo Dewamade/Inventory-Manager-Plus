@@ -1,6 +1,6 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle } from "lucide-react";
+import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface LayoutProps {
@@ -23,6 +23,7 @@ export function Layout({ children }: LayoutProps) {
 
   if (user?.role === "master") {
     menuItems.push({ href: "/master", label: "Master", icon: Database });
+    menuItems.push({ href: "/backup", label: "Backup & Restore", icon: DatabaseBackup });
   }
 
   return (
