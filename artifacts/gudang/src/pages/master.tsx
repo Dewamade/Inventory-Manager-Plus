@@ -123,7 +123,7 @@ function MaterialsTab() {
           <DialogContent>
             <form onSubmit={handleSubmit}>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Edit Material" : "New Material"}</DialogTitle>
+                <DialogTitle>{editingId ? "Edit Material" : "Tambah Material"}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
@@ -147,7 +147,7 @@ function MaterialsTab() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Description (Optional)</Label>
+                  <Label>Deskripsi (Opsional)</Label>
                   <Input 
                     value={formData.description} 
                     onChange={e => setFormData({...formData, description: e.target.value})} 
@@ -173,7 +173,7 @@ function MaterialsTab() {
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {editingId ? "Save Changes" : "Create Material"}
+                  {editingId ? "Save Changes" : "Buat Material"}
                 </Button>
               </DialogFooter>
             </form>
