@@ -1,12 +1,22 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useListMaterials, useCreateScanIn, useUpdateScanIn, useAddScanInItem, useDeleteScanInItem, getListScanInQueryKey } from "@workspace/api-client-react";
+import { useListMaterials, useCreateScanIn, useUpdateScanIn, useAddScanInItem, useDeleteScanInItem, useDeleteScanIn, getListScanInQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { QrCode, Trash2, Camera, Keyboard, CheckCircle2, Play, Square, Loader2 } from "lucide-react";
+import { QrCode, Trash2, Camera, Keyboard, CheckCircle2, Play, Square, Loader2, XCircle } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import jsQR from "jsqr";
 import QRCode from "qrcode";
 import { useQueryClient } from "@tanstack/react-query";
@@ -26,13 +36,14 @@ export default function ScanInView() {
   const [scannedItems, setScannedItems] = useState<{id: number, serialNumber: string}[]>([]);
   const [generatedQr, setGeneratedQr] = useState<string | null>(null);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const [isCancelConfirmOpen, setIsCancelConfirmOpen] = useState(false);
 
   const [scanMethod, setScanMethod] = useState<"camera" | "manual">("manual");
   const [manualInput, setManualInput] = useState("");
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
   const lastScanTime = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   // Ref to avoid stale closure in rAF loop
@@ -41,6 +52,7 @@ export default function ScanInView() {
 
   const createScanInMutation = useCreateScanIn();
   const updateScanInMutation = useUpdateScanIn();
+  const deleteScanInMutation = useDeleteScanIn();
   const addItemMutation = useAddScanInItem();
   const deleteItemMutation = useDeleteScanInItem();
 
@@ -154,7 +166,7 @@ export default function ScanInView() {
   const handleDeleteItem = async (itemId: number) => {
     if (!activeSession) return;
     try {
-      await deleteItemMutation.mutateAsync({ scanInId: activeSession.id, itemId });
+      await deleteItemMutation.mutateAsync({ id: activeSession.id, itemId });
       setScannedItems(prev => prev.filter(i => i.id !== itemId));
       toast({ title: "Item dihapus" });
     } catch {
@@ -189,6 +201,25 @@ export default function ScanInView() {
     setSelectedMaterialId("");
     localStorage.removeItem(SESSION_KEY);
     stopCamera();
+  };
+
+  const handleCancelSession = async () => {
+    if (!activeSession) return;
+    try {
+      await deleteScanInMutation.mutateAsync({ id: activeSession.id });
+      localStorage.removeItem(SESSION_KEY);
+      queryClient.invalidateQueries({ queryKey: getListScanInQueryKey() });
+      setActiveSession(null);
+      setScannedItems([]);
+      setGeneratedQr(null);
+      setSelectedMaterialId("");
+      stopCamera();
+      toast({ title: "Sesi dibatalkan", description: "Semua item yang discan telah dihapus." });
+    } catch {
+      toast({ title: "Gagal membatalkan sesi", variant: "destructive" });
+    } finally {
+      setIsCancelConfirmOpen(false);
+    }
   };
 
   // Camera: use ref-based flag to avoid stale closure in rAF loop
@@ -371,11 +402,20 @@ export default function ScanInView() {
                 </div>
                 <Button
                   onClick={handleCompleteSession}
-                  disabled={scannedItems.length === 0 || updateScanInMutation.isPending}
+                  disabled={scannedItems.length === 0 || updateScanInMutation.isPending || deleteScanInMutation.isPending}
                   className="w-full h-12 uppercase tracking-wide font-bold bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
                   {updateScanInMutation.isPending ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Square className="w-5 h-5 mr-2 fill-current" />}
                   Selesaikan Box
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCancelConfirmOpen(true)}
+                  disabled={updateScanInMutation.isPending || deleteScanInMutation.isPending}
+                  className="w-full h-10 text-destructive border-destructive/40 hover:bg-destructive/5 hover:text-destructive"
+                >
+                  {deleteScanInMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
+                  Batalkan Sesi
                 </Button>
               </div>
             )}
@@ -509,6 +549,29 @@ export default function ScanInView() {
           100% { top: 0; }
         }
       `}</style>
+
+      <AlertDialog open={isCancelConfirmOpen} onOpenChange={setIsCancelConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Batalkan Sesi Scan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sesi <strong className="font-mono">{activeSession?.boxLabel}</strong> akan dihapus beserta{" "}
+              <strong>{scannedItems.length} item</strong> yang sudah discan. Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteScanInMutation.isPending}>Kembali</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSession}
+              disabled={deleteScanInMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteScanInMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+              Ya, Batalkan
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
