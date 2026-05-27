@@ -51,7 +51,6 @@ export default function Login() {
       {/* Decorative background elements for industrial look */}
       <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-      
       <Card className="w-full max-w-md border-primary/20 shadow-2xl relative z-10 bg-card/95 backdrop-blur">
         <CardHeader className="space-y-3 pb-6">
           <div className="flex justify-center mb-2">
@@ -60,10 +59,9 @@ export default function Login() {
             </div>
           </div>
           <div className="text-center space-y-1">
-            <CardTitle className="text-2xl font-bold tracking-tight">Manajemen Inventori Gudang</CardTitle>
-            <CardDescription className="text-sm uppercase tracking-widest font-mono text-muted-foreground font-semibold">
-              System Access Portal
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold tracking-tight">Sistem Gudang
+            Pemaron</CardTitle>
+            <CardDescription className="text-sm uppercase tracking-widest font-mono text-muted-foreground font-semibold">Manajemen Stock Count Material</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
@@ -103,7 +101,7 @@ export default function Login() {
                   Authenticating...
                 </>
               ) : (
-                "Access System"
+                "Login"
               )}
             </Button>
           </form>
