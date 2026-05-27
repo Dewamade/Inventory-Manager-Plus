@@ -71,9 +71,22 @@ router.post("/scan-in", async (req, res): Promise<void> => {
     return;
   }
 
-  // Count existing scan-in sessions for this material to generate box label
-  const existingSessions = await db.select().from(scanInTable).where(eq(scanInTable.materialId, parsed.data.materialId));
-  const seqNum = (existingSessions.length + 1).toString().padStart(3, "0");
+  // Clean up any abandoned "scanning" sessions from this user before creating a new one
+  const abandonedSessions = await db
+    .select()
+    .from(scanInTable)
+    .where(and(eq(scanInTable.userId, parsed.data.userId), eq(scanInTable.status, "scanning")));
+  for (const s of abandonedSessions) {
+    await db.delete(scanItemsTable).where(eq(scanItemsTable.scanInId, s.id));
+    await db.delete(scanInTable).where(eq(scanInTable.id, s.id));
+  }
+
+  // Only count COMPLETED sessions for box label numbering so abandoned sessions don't inflate the sequence
+  const completedSessions = await db
+    .select()
+    .from(scanInTable)
+    .where(and(eq(scanInTable.materialId, parsed.data.materialId), eq(scanInTable.status, "completed")));
+  const seqNum = (completedSessions.length + 1).toString().padStart(3, "0");
   const boxLabel = `${material.code}${seqNum}`;
 
   const [scanIn] = await db

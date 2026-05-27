@@ -11,8 +11,10 @@ import jsQR from "jsqr";
 import QRCode from "qrcode";
 import { useQueryClient } from "@tanstack/react-query";
 
+const SESSION_KEY = "active_scan_in_session_id";
+
 export default function ScanInView() {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -23,6 +25,7 @@ export default function ScanInView() {
   const [activeSession, setActiveSession] = useState<any>(null);
   const [scannedItems, setScannedItems] = useState<{id: number, serialNumber: string}[]>([]);
   const [generatedQr, setGeneratedQr] = useState<string | null>(null);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
 
   const [scanMethod, setScanMethod] = useState<"camera" | "manual">("manual");
   const [manualInput, setManualInput] = useState("");
@@ -44,6 +47,31 @@ export default function ScanInView() {
   useEffect(() => {
     activeSessionRef.current = activeSession;
   }, [activeSession]);
+
+  // Restore session from localStorage on mount
+  useEffect(() => {
+    const savedId = localStorage.getItem(SESSION_KEY);
+    if (!savedId || !token) {
+      setIsRestoringSession(false);
+      return;
+    }
+    fetch(`/api/scan-in/${savedId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => (r.ok ? r.json() : null))
+      .then(session => {
+        if (session && session.status === "scanning") {
+          setActiveSession(session);
+          setScannedItems(session.items ?? []);
+          toast({ title: "Sesi dilanjutkan", description: `Box ${session.boxLabel} — ${session.items?.length ?? 0} item tersimpan.` });
+        } else {
+          localStorage.removeItem(SESSION_KEY);
+        }
+      })
+      .catch(() => localStorage.removeItem(SESSION_KEY))
+      .finally(() => setIsRestoringSession(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -77,6 +105,7 @@ export default function ScanInView() {
       setActiveSession(result);
       setScannedItems([]);
       setGeneratedQr(null);
+      localStorage.setItem(SESSION_KEY, String(result.id));
       if (scanMethod === "manual") {
         setTimeout(() => inputRef.current?.focus(), 100);
       }
@@ -144,6 +173,7 @@ export default function ScanInView() {
       const qrDataUrl = await QRCode.toDataURL(qrText, { errorCorrectionLevel: 'M', margin: 2, width: 300 });
       await updateScanInMutation.mutateAsync({ id: activeSession.id, data: { status: "completed", qrCodeData: qrDataUrl } });
       setGeneratedQr(qrDataUrl);
+      localStorage.removeItem(SESSION_KEY);
       queryClient.invalidateQueries({ queryKey: getListScanInQueryKey() });
       toast({ title: "Sesi selesai", description: `${scannedItems.length} item berhasil discan.` });
       stopCamera();
@@ -157,6 +187,7 @@ export default function ScanInView() {
     setScannedItems([]);
     setGeneratedQr(null);
     setSelectedMaterialId("");
+    localStorage.removeItem(SESSION_KEY);
     stopCamera();
   };
 
@@ -236,6 +267,15 @@ export default function ScanInView() {
     }
     return () => stopCamera();
   }, [scanMethod, activeSession, generatedQr]);
+
+  if (isRestoringSession) {
+    return (
+      <div className="flex items-center justify-center min-h-[300px] text-muted-foreground gap-3">
+        <Loader2 className="w-6 h-6 animate-spin" />
+        <span>Memuat sesi...</span>
+      </div>
+    );
+  }
 
   if (generatedQr) {
     return (
