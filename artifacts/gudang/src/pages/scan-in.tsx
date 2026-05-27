@@ -29,7 +29,7 @@ export default function ScanInView() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestRef = useRef<number | undefined>(undefined);
+  const requestRef = useRef<number>();
   const lastScanTime = useRef<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   // Ref to avoid stale closure in rAF loop
@@ -125,7 +125,7 @@ export default function ScanInView() {
   const handleDeleteItem = async (itemId: number) => {
     if (!activeSession) return;
     try {
-      await deleteItemMutation.mutateAsync({ id: activeSession.id, itemId });
+      await deleteItemMutation.mutateAsync({ scanInId: activeSession.id, itemId });
       setScannedItems(prev => prev.filter(i => i.id !== itemId));
       toast({ title: "Item dihapus" });
     } catch {
