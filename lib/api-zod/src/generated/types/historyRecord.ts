@@ -10,7 +10,6 @@ import type { HistoryRecordType } from './historyRecordType';
 export interface HistoryRecord {
   id: number;
   type: HistoryRecordType;
-  source?: 'scan' | 'non-scan';
   /** @nullable */
   materialId: number | null;
   /** @nullable */
@@ -20,7 +19,5 @@ export interface HistoryRecord {
   userId: number;
   userName: string;
   serialNumbers: string[];
-  count?: number;
-  satuan?: string;
   createdAt: string;
 }

@@ -5,9 +5,11 @@
  * Warehouse Inventory Management API
  * OpenAPI spec version: 0.1.0
  */
+import type { MaterialInputKategori } from './materialInputKategori';
 
 export interface MaterialInput {
   name: string;
   code: string;
   description?: string;
+  kategori?: MaterialInputKategori;
 }

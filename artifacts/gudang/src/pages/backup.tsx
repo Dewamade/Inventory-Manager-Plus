@@ -122,12 +122,14 @@ export default function Backup() {
         </CardHeader>
         <CardContent className="pt-6 space-y-4">
           <div className="bg-muted/40 rounded-lg p-4 text-sm text-muted-foreground space-y-1 border border-border">
-            <p>The backup file includes:</p>
+            <p>File backup mencakup:</p>
             <ul className="list-disc list-inside space-y-0.5 mt-2">
-              <li>All users (with hashed passwords)</li>
-              <li>All materials</li>
-              <li>All scan-in sessions and items</li>
-              <li>All scan-out sessions</li>
+              <li>Semua pengguna (dengan password terenkripsi)</li>
+              <li>Semua material (termasuk kategori)</li>
+              <li>Semua sesi scan-in dan item</li>
+              <li>Semua sesi scan-out</li>
+              <li>Semua data material masuk (non-scan)</li>
+              <li>Semua data material keluar (non-scan)</li>
             </ul>
           </div>
           {lastBackup && (
@@ -196,14 +198,16 @@ export default function Backup() {
           {restoreResult && (
             <div className="bg-emerald-50/50 dark:bg-emerald-950/20 border border-emerald-500/20 rounded-lg p-4 text-sm space-y-2">
               <p className="font-semibold text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
-                <CheckCircle2 className="w-4 h-4" /> Restore Successful
+                <CheckCircle2 className="w-4 h-4" /> Restore Berhasil
               </p>
               <div className="grid grid-cols-2 gap-1 text-muted-foreground">
-                <span>Users restored:</span><span className="font-mono font-bold text-foreground">{restoreResult.users}</span>
-                <span>Materials restored:</span><span className="font-mono font-bold text-foreground">{restoreResult.materials}</span>
-                <span>Scan-in sessions:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanIns}</span>
-                <span>Scan items:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanItems}</span>
-                <span>Scan-out sessions:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanOuts}</span>
+                <span>Users dipulihkan:</span><span className="font-mono font-bold text-foreground">{restoreResult.users}</span>
+                <span>Material dipulihkan:</span><span className="font-mono font-bold text-foreground">{restoreResult.materials}</span>
+                <span>Sesi scan-in:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanIns}</span>
+                <span>Item scan:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanItems}</span>
+                <span>Sesi scan-out:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanOuts}</span>
+                <span>Material masuk (non-scan):</span><span className="font-mono font-bold text-foreground">{restoreResult.nonScanMasuk ?? 0}</span>
+                <span>Material keluar (non-scan):</span><span className="font-mono font-bold text-foreground">{restoreResult.nonScanKeluar ?? 0}</span>
               </div>
             </div>
           )}

@@ -369,7 +369,7 @@ export default function ScanInView() {
                       <SelectValue placeholder="Pilih Material..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {materials?.map(m => (
+                      {materials?.filter(m => (m as any).kategori === 'scan' || !(m as any).kategori).map(m => (
                         <SelectItem key={m.id} value={m.id.toString()}>{m.code} - {m.name}</SelectItem>
                       ))}
                     </SelectContent>

@@ -65,15 +65,15 @@ function MaterialsTab() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState({ name: "", code: "", description: "" });
+  const [formData, setFormData] = useState({ name: "", code: "", description: "", kategori: "scan" as "scan" | "non-scan" });
 
   const handleOpen = (material?: any) => {
     if (material) {
       setEditingId(material.id);
-      setFormData({ name: material.name, code: material.code, description: material.description || "" });
+      setFormData({ name: material.name, code: material.code, description: material.description || "", kategori: material.kategori ?? "scan" });
     } else {
       setEditingId(null);
-      setFormData({ name: "", code: "", description: "" });
+      setFormData({ name: "", code: "", description: "", kategori: "scan" });
     }
     setIsOpen(true);
   };
@@ -152,6 +152,23 @@ function MaterialsTab() {
                     onChange={e => setFormData({...formData, description: e.target.value})} 
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Kategori Material</Label>
+                  <Select value={formData.kategori} onValueChange={(v: "scan" | "non-scan") => setFormData({...formData, kategori: v})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="scan">Scan (Serial Number / Barcode)</SelectItem>
+                      <SelectItem value="non-scan">Non-Scan (Manual / Satuan)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {formData.kategori === "scan" 
+                      ? "Muncul di menu Scan Material untuk scan barcode/QR" 
+                      : "Muncul di menu Material Masuk/Keluar untuk input manual"}
+                  </p>
+                </div>
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
@@ -171,6 +188,7 @@ function MaterialsTab() {
               <TableRow>
                 <TableHead className="w-[150px]">Code</TableHead>
                 <TableHead>Name</TableHead>
+                <TableHead>Kategori</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -180,6 +198,11 @@ function MaterialsTab() {
                 <TableRow key={m.id}>
                   <TableCell className="font-mono font-bold">{m.code}</TableCell>
                   <TableCell className="font-medium">{m.name}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold uppercase ${(m as any).kategori === 'non-scan' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'}`}>
+                      {(m as any).kategori ?? 'scan'}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{m.description || '-'}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="icon" onClick={() => handleOpen(m)}><Pencil className="w-4 h-4" /></Button>
@@ -450,9 +473,11 @@ function BackupTab() {
             <p>File backup mencakup:</p>
             <ul className="list-disc list-inside space-y-0.5 mt-2">
               <li>Semua pengguna (dengan password terenkripsi)</li>
-              <li>Semua material</li>
+              <li>Semua material (termasuk kategori)</li>
               <li>Semua sesi scan-in dan item</li>
               <li>Semua sesi scan-out</li>
+              <li>Semua data material masuk (non-scan)</li>
+              <li>Semua data material keluar (non-scan)</li>
             </ul>
           </div>
           {lastBackup && (

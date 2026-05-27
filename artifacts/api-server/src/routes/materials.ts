@@ -21,6 +21,7 @@ function materialToJson(m: any) {
     name: m.name,
     code: m.code,
     description: m.description ?? null,
+    kategori: m.kategori ?? "scan",
     createdAt: m.createdAt.toISOString(),
   };
 }

@@ -124,6 +124,7 @@ export const ListMaterialsResponseItem = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
+  "kategori": zod.enum(['scan', 'non-scan']),
   "createdAt": zod.string()
 })
 export const ListMaterialsResponse = zod.array(ListMaterialsResponseItem)
@@ -132,10 +133,13 @@ export const ListMaterialsResponse = zod.array(ListMaterialsResponseItem)
 /**
  * @summary Create a new material (master only)
  */
+export const createMaterialBodyKategoriDefault = `scan`;
+
 export const CreateMaterialBody = zod.object({
   "name": zod.string(),
   "code": zod.string(),
-  "description": zod.string().optional()
+  "description": zod.string().optional(),
+  "kategori": zod.enum(['scan', 'non-scan']).default(createMaterialBodyKategoriDefault)
 })
 
 
@@ -151,6 +155,7 @@ export const GetMaterialResponse = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
+  "kategori": zod.enum(['scan', 'non-scan']),
   "createdAt": zod.string()
 })
 
@@ -165,7 +170,8 @@ export const UpdateMaterialParams = zod.object({
 export const UpdateMaterialBody = zod.object({
   "name": zod.string().optional(),
   "code": zod.string().optional(),
-  "description": zod.string().nullish()
+  "description": zod.string().nullish(),
+  "kategori": zod.enum(['scan', 'non-scan']).optional()
 })
 
 export const UpdateMaterialResponse = zod.object({
@@ -173,6 +179,7 @@ export const UpdateMaterialResponse = zod.object({
   "name": zod.string(),
   "code": zod.string(),
   "description": zod.string().nullish(),
+  "kategori": zod.enum(['scan', 'non-scan']),
   "createdAt": zod.string()
 })
 
@@ -405,15 +412,12 @@ export const ListHistoryQueryParams = zod.object({
 export const ListHistoryResponseItem = zod.object({
   "id": zod.number(),
   "type": zod.enum(['in', 'out']),
-  "source": zod.enum(['scan', 'non-scan']).optional().default('scan'),
   "materialId": zod.number().nullable(),
   "materialName": zod.string().nullable(),
   "boxLabel": zod.string().nullable(),
   "userId": zod.number(),
   "userName": zod.string(),
   "serialNumbers": zod.array(zod.string()),
-  "count": zod.number().optional(),
-  "satuan": zod.string().optional(),
   "createdAt": zod.string()
 })
 export const ListHistoryResponse = zod.array(ListHistoryResponseItem)
@@ -466,12 +470,10 @@ export const GetRecentActivityQueryParams = zod.object({
 export const GetRecentActivityResponseItem = zod.object({
   "id": zod.number(),
   "type": zod.enum(['in', 'out']),
-  "source": zod.enum(['scan', 'non-scan']).optional().default('scan'),
   "materialName": zod.string().nullable(),
   "boxLabel": zod.string().nullable(),
   "userName": zod.string(),
   "count": zod.number(),
-  "satuan": zod.string().optional(),
   "createdAt": zod.string()
 })
 export const GetRecentActivityResponse = zod.array(GetRecentActivityResponseItem)

@@ -17,17 +17,25 @@ router.get("/dashboard/summary", async (req, res): Promise<void> => {
   const allScanOuts = await db.select().from(scanOutTable);
   const allMaterials = await db.select().from(materialsTable);
   const allUsers = await db.select().from(usersTable);
+  const allNonScanMasuk = await db.select().from(nonScanMasukTable);
+  const allNonScanKeluar = await db.select().from(nonScanKeluarTable);
 
   let totalIn = 0;
   for (const si of allScanIns) {
     const items = await db.select().from(scanItemsTable).where(eq(scanItemsTable.scanInId, si.id));
     totalIn += items.length;
   }
+  for (const nm of allNonScanMasuk) {
+    totalIn += nm.jumlah;
+  }
 
   let totalOut = 0;
   for (const so of allScanOuts) {
     const items = await db.select().from(scanItemsTable).where(eq(scanItemsTable.scanOutId, so.id));
     totalOut += items.length;
+  }
+  for (const nk of allNonScanKeluar) {
+    totalOut += nk.jumlah;
   }
 
   res.json(GetDashboardSummaryResponse.parse({
@@ -58,11 +66,21 @@ router.get("/dashboard/material-stats", async (req, res): Promise<void> => {
       }
     }
 
+    const nonScanMasukRows = await db.select().from(nonScanMasukTable).where(eq(nonScanMasukTable.materialId, material.id));
+    for (const nm of nonScanMasukRows) {
+      totalIn += nm.jumlah;
+    }
+
     const scanInIds = scanIns.map((s) => s.id);
     let totalOut = 0;
     for (const siId of scanInIds) {
       const outItems = await db.select().from(scanItemsTable).where(eq(scanItemsTable.scanInId, siId));
       totalOut += outItems.filter((i) => i.scanOutId != null).length;
+    }
+
+    const nonScanKeluarRows = await db.select().from(nonScanKeluarTable).where(eq(nonScanKeluarTable.materialId, material.id));
+    for (const nk of nonScanKeluarRows) {
+      totalOut += nk.jumlah;
     }
 
     stats.push({

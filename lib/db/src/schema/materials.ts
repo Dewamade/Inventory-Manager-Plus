@@ -7,6 +7,7 @@ export const materialsTable = pgTable("materials", {
   name: text("name").notNull(),
   code: text("code").notNull().unique(),
   description: text("description"),
+  kategori: text("kategori").notNull().default("scan"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

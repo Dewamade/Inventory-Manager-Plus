@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { sql } from "drizzle-orm";
-import { db, usersTable, materialsTable, scanInTable, scanItemsTable, scanOutTable } from "@workspace/db";
+import { db, usersTable, materialsTable, scanInTable, scanItemsTable, scanOutTable, nonScanMasukTable, nonScanKeluarTable } from "@workspace/db";
 import { parseToken } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -30,18 +30,20 @@ router.get("/backup", async (req, res): Promise<void> => {
   if (!requireMaster(req, res)) return;
 
   try {
-    const [users, materials, scanIns, scanItems, scanOuts] = await Promise.all([
+    const [users, materials, scanIns, scanItems, scanOuts, nonScanMasuk, nonScanKeluar] = await Promise.all([
       db.select().from(usersTable),
       db.select().from(materialsTable),
       db.select().from(scanInTable),
       db.select().from(scanItemsTable),
       db.select().from(scanOutTable),
+      db.select().from(nonScanMasukTable),
+      db.select().from(nonScanKeluarTable),
     ]);
 
     const backup = {
       exportedAt: new Date().toISOString(),
-      version: 1,
-      data: { users, materials, scanIns, scanItems, scanOuts },
+      version: 2,
+      data: { users, materials, scanIns, scanItems, scanOuts, nonScanMasuk, nonScanKeluar },
     };
 
     res.setHeader("Content-Type", "application/json");
@@ -62,8 +64,10 @@ router.post("/restore", async (req, res): Promise<void> => {
       return;
     }
 
-    const { users = [], materials = [], scanIns = [], scanItems = [], scanOuts = [] } = data;
+    const { users = [], materials = [], scanIns = [], scanItems = [], scanOuts = [], nonScanMasuk = [], nonScanKeluar = [] } = data;
 
+    await db.delete(nonScanKeluarTable);
+    await db.delete(nonScanMasukTable);
     await db.delete(scanItemsTable);
     await db.delete(scanOutTable);
     await db.delete(scanInTable);
@@ -75,6 +79,8 @@ router.post("/restore", async (req, res): Promise<void> => {
     let insertedScanIns = 0;
     let insertedScanItems = 0;
     let insertedScanOuts = 0;
+    let insertedNonScanMasuk = 0;
+    let insertedNonScanKeluar = 0;
 
     if (users.length > 0) {
       const rows = users.map((u: any) => ({ ...u, createdAt: toDate(u.createdAt) }));
@@ -83,7 +89,11 @@ router.post("/restore", async (req, res): Promise<void> => {
     }
 
     if (materials.length > 0) {
-      const rows = materials.map((m: any) => ({ ...m, createdAt: toDate(m.createdAt) }));
+      const rows = materials.map((m: any) => ({
+        ...m,
+        kategori: m.kategori ?? "scan",
+        createdAt: toDate(m.createdAt),
+      }));
       await db.insert(materialsTable).values(rows);
       insertedMaterials = rows.length;
     }
@@ -110,11 +120,25 @@ router.post("/restore", async (req, res): Promise<void> => {
       insertedScanOuts = rows.length;
     }
 
+    if (nonScanMasuk.length > 0) {
+      const rows = nonScanMasuk.map((nm: any) => ({ ...nm, createdAt: toDate(nm.createdAt) }));
+      await db.insert(nonScanMasukTable).values(rows);
+      insertedNonScanMasuk = rows.length;
+    }
+
+    if (nonScanKeluar.length > 0) {
+      const rows = nonScanKeluar.map((nk: any) => ({ ...nk, createdAt: toDate(nk.createdAt) }));
+      await db.insert(nonScanKeluarTable).values(rows);
+      insertedNonScanKeluar = rows.length;
+    }
+
     await db.execute(sql`SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0) + 1, false)`);
     await db.execute(sql`SELECT setval('materials_id_seq', COALESCE((SELECT MAX(id) FROM materials), 0) + 1, false)`);
     await db.execute(sql`SELECT setval('scan_in_id_seq', COALESCE((SELECT MAX(id) FROM scan_in), 0) + 1, false)`);
     await db.execute(sql`SELECT setval('scan_items_id_seq', COALESCE((SELECT MAX(id) FROM scan_items), 0) + 1, false)`);
     await db.execute(sql`SELECT setval('scan_out_id_seq', COALESCE((SELECT MAX(id) FROM scan_out), 0) + 1, false)`);
+    await db.execute(sql`SELECT setval('non_scan_masuk_id_seq', COALESCE((SELECT MAX(id) FROM non_scan_masuk), 0) + 1, false)`);
+    await db.execute(sql`SELECT setval('non_scan_keluar_id_seq', COALESCE((SELECT MAX(id) FROM non_scan_keluar), 0) + 1, false)`);
 
     res.json({
       success: true,
@@ -124,6 +148,8 @@ router.post("/restore", async (req, res): Promise<void> => {
         scanIns: insertedScanIns,
         scanItems: insertedScanItems,
         scanOuts: insertedScanOuts,
+        nonScanMasuk: insertedNonScanMasuk,
+        nonScanKeluar: insertedNonScanKeluar,
       },
     });
   } catch (err: any) {

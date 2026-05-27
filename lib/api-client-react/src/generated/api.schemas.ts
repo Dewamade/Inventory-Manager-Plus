@@ -63,26 +63,53 @@ export interface UserUpdate {
   role?: UserUpdateRole;
 }
 
+export type MaterialKategori = typeof MaterialKategori[keyof typeof MaterialKategori];
+
+
+export const MaterialKategori = {
+  scan: 'scan',
+  'non-scan': 'non-scan',
+} as const;
+
 export interface Material {
   id: number;
   name: string;
   code: string;
   /** @nullable */
   description?: string | null;
+  kategori: MaterialKategori;
   createdAt: string;
 }
+
+export type MaterialInputKategori = typeof MaterialInputKategori[keyof typeof MaterialInputKategori];
+
+
+export const MaterialInputKategori = {
+  scan: 'scan',
+  'non-scan': 'non-scan',
+} as const;
 
 export interface MaterialInput {
   name: string;
   code: string;
   description?: string;
+  kategori?: MaterialInputKategori;
 }
+
+export type MaterialUpdateKategori = typeof MaterialUpdateKategori[keyof typeof MaterialUpdateKategori];
+
+
+export const MaterialUpdateKategori = {
+  scan: 'scan',
+  'non-scan': 'non-scan',
+} as const;
 
 export interface MaterialUpdate {
   name?: string;
   code?: string;
   /** @nullable */
   description?: string | null;
+  kategori?: MaterialUpdateKategori;
 }
 
 export type ScanInStatus = typeof ScanInStatus[keyof typeof ScanInStatus];
