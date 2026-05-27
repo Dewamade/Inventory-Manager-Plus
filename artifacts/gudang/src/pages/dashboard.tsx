@@ -1,6 +1,6 @@
-import { useGetDashboardSummary, useGetMaterialStats, useGetRecentActivity, useListMaterials } from "@workspace/api-client-react";
+import { useGetMaterialStats, useGetRecentActivity, useListMaterials, useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus, Layers } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
@@ -11,7 +11,7 @@ export default function Dashboard() {
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
   const { data: materials } = useListMaterials();
   const { data: allStats, isLoading: isLoadingStats } = useGetMaterialStats();
-  const { data: recentActivity, isLoading: isLoadingActivity } = useGetRecentActivity({ limit: 10 });
+  const { data: recentActivity, isLoading: isLoadingActivity } = useGetRecentActivity({ limit: 15 });
 
   const statsArray = Array.isArray(allStats) ? allStats : allStats ? [allStats] : [];
 
@@ -23,54 +23,46 @@ export default function Dashboard() {
   const singleStat = filteredStats.length === 1 ? filteredStats[0] : null;
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground mt-1">Tampilan Realtime Material Gudang Pemaron</p>
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground mt-1">Tampilan Realtime Material Gudang Pemaron</p>
+        </div>
+        {/* Jenis Material badge */}
+        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-5 py-3 w-fit">
+          <div className="p-2 bg-primary/10 rounded-lg">
+            <Layers className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Jenis Material</p>
+            {isLoadingSummary ? (
+              <div className="animate-pulse h-7 w-10 bg-muted rounded mt-0.5" />
+            ) : (
+              <p className="text-2xl font-bold font-mono text-primary leading-none mt-0.5">
+                {summary?.totalMaterials ?? 0}
+              </p>
+            )}
+          </div>
+        </div>
       </div>
-      {/* Global Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title="Total Stock"
-          value={summary?.totalStock ?? 0}
-          icon={Package}
-          isLoading={isLoadingSummary}
-          className="border-primary/50 bg-primary/5"
-        />
-        <MetricCard
-          title="Total Masuk"
-          value={summary?.totalMaterialIn ?? 0}
-          icon={ArrowDownRight}
-          isLoading={isLoadingSummary}
-          className="border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/20"
-          valueClass="text-emerald-600 dark:text-emerald-500"
-        />
-        <MetricCard
-          title="Total Keluar"
-          value={summary?.totalMaterialOut ?? 0}
-          icon={ArrowUpRight}
-          isLoading={isLoadingSummary}
-          className="border-amber-500/30 bg-amber-50 dark:bg-amber-950/20"
-          valueClass="text-amber-600 dark:text-amber-500"
-        />
-        <MetricCard
-          title="Jenis Material"
-          value={summary?.totalMaterials ?? 0}
-          icon={Activity}
-          isLoading={isLoadingSummary}
-        />
-      </div>
-      <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-6">
-          <Card className="border-sidebar-border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 gap-4">
-              <CardTitle className="text-xl font-semibold">Stok per Material</CardTitle>
-              <div className="w-[220px] shrink-0">
+
+      {/* Main Content */}
+      <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
+
+        {/* Stok per Material */}
+        <div className="lg:col-span-2">
+          <Card className="border-border/60 shadow-sm h-full">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-border/40">
+              <CardTitle className="text-lg font-semibold">Stok per Material</CardTitle>
+              <div className="w-[210px] shrink-0">
                 <Select
                   value={selectedMaterialId.toString()}
                   onValueChange={(val) => setSelectedMaterialId(val === "all" ? "all" : parseInt(val))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9 text-sm">
                     <SelectValue placeholder="Semua Material" />
                   </SelectTrigger>
                   <SelectContent>
@@ -82,61 +74,58 @@ export default function Dashboard() {
                 </Select>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-5">
               {isLoadingStats ? (
-                <div className="h-[160px] flex items-center justify-center">
+                <div className="h-48 flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 </div>
               ) : filteredStats.length === 0 ? (
-                <div className="text-center p-8 text-muted-foreground">Belum ada data</div>
+                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
+                  Belum ada data
+                </div>
               ) : singleStat ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <p className="text-sm font-semibold text-muted-foreground text-center uppercase tracking-wider">
                     {singleStat.materialName}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-3">
-                    <div className="flex flex-col items-center justify-center p-6 bg-primary/5 rounded-lg border border-primary/20">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Stock</span>
-                      <span className="text-5xl font-bold font-mono text-primary">{singleStat.currentStock}</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center p-6 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-500/20">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Masuk</span>
-                      <span className="text-5xl font-bold font-mono text-emerald-600 dark:text-emerald-500">{singleStat.totalIn}</span>
-                    </div>
-                    <div className="flex flex-col items-center justify-center p-6 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-500/20">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Keluar</span>
-                      <span className="text-5xl font-bold font-mono text-amber-600 dark:text-amber-500">{singleStat.totalOut}</span>
-                    </div>
+                    <StatBox label="Stock" value={singleStat.currentStock} color="primary" />
+                    <StatBox label="Masuk" value={singleStat.totalIn} color="emerald" />
+                    <StatBox label="Keluar" value={singleStat.totalOut} color="amber" />
                   </div>
                 </div>
               ) : (
-                <div className="rounded-lg border border-border overflow-hidden">
+                <div className="rounded-xl border border-border/50 overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-muted/50">
-                      <tr>
+                    <thead>
+                      <tr className="bg-muted/40 border-b border-border/40">
                         <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Material</th>
                         <th className="text-center py-3 px-4 font-semibold text-emerald-600 uppercase tracking-wider text-xs">Masuk</th>
                         <th className="text-center py-3 px-4 font-semibold text-amber-600 uppercase tracking-wider text-xs">Keluar</th>
                         <th className="text-center py-3 px-4 font-semibold text-primary uppercase tracking-wider text-xs">Stock</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-border">
+                    <tbody className="divide-y divide-border/30">
                       {filteredStats.map((s) => (
                         <tr
                           key={s.materialId}
-                          className="hover:bg-muted/20 transition-colors cursor-pointer"
+                          className="hover:bg-muted/30 transition-colors cursor-pointer group"
                           onClick={() => setSelectedMaterialId(s.materialId)}
                         >
-                          <td className="py-3 px-4 font-medium">{s.materialName}</td>
-                          <td className="py-3 px-4 text-center font-mono font-bold text-emerald-600 dark:text-emerald-500">{s.totalIn}</td>
-                          <td className="py-3 px-4 text-center font-mono font-bold text-amber-600 dark:text-amber-500">{s.totalOut}</td>
-                          <td className="py-3 px-4 text-center font-mono font-bold text-primary">{s.currentStock}</td>
+                          <td className="py-3.5 px-4 font-medium group-hover:text-primary transition-colors">{s.materialName}</td>
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-600 dark:text-emerald-500">{s.totalIn}</td>
+                          <td className="py-3.5 px-4 text-center font-mono font-bold text-amber-600 dark:text-amber-500">{s.totalOut}</td>
+                          <td className="py-3.5 px-4 text-center">
+                            <span className="inline-flex items-center justify-center font-mono font-bold text-primary bg-primary/8 rounded-lg px-3 py-1 min-w-[48px]">
+                              {s.currentStock}
+                            </span>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <p className="text-xs text-muted-foreground text-center py-2 bg-muted/10">
-                    Klik baris untuk lihat detail material
+                  <p className="text-xs text-muted-foreground text-center py-2.5 bg-muted/20 border-t border-border/30">
+                    Klik baris untuk lihat detail
                   </p>
                 </div>
               )}
@@ -144,21 +133,22 @@ export default function Dashboard() {
           </Card>
         </div>
 
+        {/* Aktivitas Terbaru */}
         <div className="lg:col-span-1">
-          <Card className="h-full border-sidebar-border shadow-sm flex flex-col">
-            <CardHeader className="pb-4 border-b border-border/50">
+          <Card className="h-full border-border/60 shadow-sm flex flex-col">
+            <CardHeader className="pb-4 border-b border-border/40">
               <CardTitle className="text-lg font-semibold flex items-center gap-2">
                 <Activity className="w-5 h-5 text-primary" />
                 Aktivitas Terbaru
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 flex-1 overflow-auto max-h-[500px]">
+            <CardContent className="p-0 flex-1 overflow-auto max-h-[520px]">
               {isLoadingActivity ? (
                 <div className="p-8 flex justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
               ) : recentActivity && recentActivity.length > 0 ? (
-                <div className="divide-y divide-border/50">
+                <div className="divide-y divide-border/40">
                   {recentActivity.map((activity) => {
                     const isNonScan = activity.source === "non-scan";
                     const isIn = activity.type === "in";
@@ -173,31 +163,30 @@ export default function Dashboard() {
                       : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400";
 
                     return (
-                      <div key={activity.id} className="p-4 flex items-start gap-3 hover:bg-muted/30 transition-colors">
+                      <div key={activity.id} className="px-4 py-3.5 flex items-start gap-3 hover:bg-muted/20 transition-colors">
                         <div className={`mt-0.5 p-2 rounded-full shrink-0 ${colorClass}`}>
-                          <IconComp className="w-4 h-4" />
+                          <IconComp className="w-3.5 h-3.5" />
                         </div>
-                        <div className="flex-1 space-y-1 min-w-0">
+                        <div className="flex-1 space-y-0.5 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-medium leading-none truncate">{label}</p>
-                            <span className="text-xs text-muted-foreground font-mono shrink-0">
+                            <p className="text-sm font-semibold leading-none truncate">{label}</p>
+                            <span className="text-[11px] text-muted-foreground font-mono shrink-0">
                               {format(new Date(activity.createdAt), "HH:mm")}
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground truncate">
                             <span className="font-semibold text-foreground">
                               {activity.count} {isNonScan && (activity as any).satuan ? (activity as any).satuan : "item"}
-                            </span>{" "}
-                            — <span className="font-mono">{activity.materialName || "-"}</span>
+                            </span>
+                            {" — "}
+                            <span className="font-mono text-xs">{activity.materialName || "-"}</span>
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            {isNonScan ? (
-                              <span className="font-mono bg-muted px-1 py-0.5 rounded">Non-Scan</span>
-                            ) : (
-                              <span className="font-mono bg-muted px-1 py-0.5 rounded">{activity.boxLabel || "N/A"}</span>
-                            )}
-                            {" · "}{activity.userName}
-                          </p>
+                          <div className="flex items-center gap-1.5 pt-0.5">
+                            <span className="font-mono text-[11px] bg-muted/70 px-1.5 py-0.5 rounded text-muted-foreground">
+                              {isNonScan ? "Non-Scan" : (activity.boxLabel || "N/A")}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">· {activity.userName}</span>
+                          </div>
                         </div>
                       </div>
                     );
@@ -216,22 +205,29 @@ export default function Dashboard() {
   );
 }
 
-function MetricCard({ title, value, icon: Icon, isLoading, className = "", valueClass = "" }: any) {
+function StatBox({ label, value, color }: { label: string; value: number; color: "primary" | "emerald" | "amber" }) {
+  const styles = {
+    primary: {
+      wrap: "bg-primary/5 border-primary/20",
+      label: "text-muted-foreground",
+      value: "text-primary",
+    },
+    emerald: {
+      wrap: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-500/20",
+      label: "text-muted-foreground",
+      value: "text-emerald-600 dark:text-emerald-500",
+    },
+    amber: {
+      wrap: "bg-amber-50 dark:bg-amber-950/20 border-amber-500/20",
+      label: "text-muted-foreground",
+      value: "text-amber-600 dark:text-amber-500",
+    },
+  }[color];
+
   return (
-    <Card className={`overflow-hidden ${className}`}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium uppercase tracking-wider">{title}</CardTitle>
-        <Icon className="h-4 w-4 opacity-70" />
-      </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="h-8 flex items-center">
-            <div className="animate-pulse rounded-md bg-muted h-6 w-20" />
-          </div>
-        ) : (
-          <div className={`text-3xl font-bold font-mono tracking-tight ${valueClass}`}>{value}</div>
-        )}
-      </CardContent>
-    </Card>
+    <div className={`flex flex-col items-center justify-center p-6 rounded-xl border ${styles.wrap}`}>
+      <span className={`text-xs font-semibold uppercase tracking-wider mb-2 ${styles.label}`}>{label}</span>
+      <span className={`text-5xl font-bold font-mono ${styles.value}`}>{value}</span>
+    </div>
   );
 }
