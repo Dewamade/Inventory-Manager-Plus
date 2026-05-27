@@ -21,9 +21,7 @@ export default function Riwayat() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: history, isLoading, refetch } = useListHistory({
-    query: {
-      type: filterType === "all" ? undefined : filterType
-    }
+    type: filterType === "all" ? undefined : filterType
   });
 
   const deleteHistoryMutation = useDeleteHistory();
