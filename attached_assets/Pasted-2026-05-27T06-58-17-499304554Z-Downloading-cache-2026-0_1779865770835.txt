@@ -1,0 +1,26 @@
+2026-05-27T06:58:17.499304554Z ==> Downloading cache...
+2026-05-27T06:58:17.53807277Z ==> Cloning from https://github.com/jacksatriadi-jpg/Inventory-Manager-Plus
+2026-05-27T06:58:18.890523686Z ==> Checking out commit cdc72d715ea8dd81836e229770e940351a927ca8 in branch main
+2026-05-27T06:58:22.720615028Z ==> Downloaded 103MB in 2s. Extraction took 3s.
+2026-05-27T06:58:27.65667936Z ==> Using Node.js version 24.14.1 (default)
+2026-05-27T06:58:27.656695311Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2026-05-27T06:58:27.705865455Z ==> Running build command 'pnpm install --frozen-lockfile; pnpm run build'...
+2026-05-27T06:58:34.15005227Z 
+2026-05-27T06:58:34.150086261Z > workspace@0.0.0 build /opt/render/project/src
+2026-05-27T06:58:34.150094982Z > pnpm run typecheck && pnpm -r --filter "!@workspace/mockup-sandbox" --if-present run build
+2026-05-27T06:58:34.150100282Z 
+2026-05-27T06:58:34.462291444Z 
+2026-05-27T06:58:34.462314515Z > workspace@0.0.0 typecheck /opt/render/project/src
+2026-05-27T06:58:34.462321685Z > pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "!@workspace/gudang" --filter "!@workspace/mockup-sandbox" --filter "./scripts" --if-present run typecheck
+2026-05-27T06:58:34.462325555Z 
+2026-05-27T06:58:34.763956144Z 
+2026-05-27T06:58:34.763972335Z > workspace@0.0.0 typecheck:libs /opt/render/project/src
+2026-05-27T06:58:34.763976755Z > tsc --build
+2026-05-27T06:58:34.763980575Z 
+2026-05-27T06:58:39.26526859Z /opt/render/project/src/artifacts/api-server:
+2026-05-27T06:58:39.265291901Z  ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @workspace/api-server@0.0.0 typecheck: `tsc -p tsconfig.json --noEmit`
+2026-05-27T06:58:39.265296861Z Exit status 2
+2026-05-27T06:58:39.333344959Z  ELIFECYCLE  Command failed with exit code 2.
+2026-05-27T06:58:39.362263772Z  ELIFECYCLE  Command failed with exit code 2.
+2026-05-27T06:58:39.412951728Z ==> Build failed 😞
+2026-05-27T06:58:39.412968289Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys

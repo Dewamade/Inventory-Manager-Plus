@@ -7,6 +7,7 @@ import scanInRouter from "./scanIn";
 import scanOutRouter from "./scanOut";
 import historyRouter from "./history";
 import dashboardRouter from "./dashboard";
+import backupRouter from "./backup";
 
 const router: IRouter = Router();
 
@@ -18,9 +19,6 @@ router.use(scanInRouter);
 router.use(scanOutRouter);
 router.use(historyRouter);
 router.use(dashboardRouter);
+router.use(backupRouter);
 
 export default router;
-
-import backupRouter from "./backup";   // add this line
-// ... existing imports ...
-router.use(backupRouter);              // add this line at the bottom
