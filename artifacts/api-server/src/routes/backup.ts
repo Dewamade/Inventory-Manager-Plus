@@ -1,8 +1,16 @@
 import { Router, type IRouter } from "express";
+import { sql } from "drizzle-orm";
 import { db, usersTable, materialsTable, scanInTable, scanItemsTable, scanOutTable } from "@workspace/db";
 import { parseToken } from "../lib/auth";
 
 const router: IRouter = Router();
+
+function toDate(val: any): Date | null {
+  if (!val) return null;
+  if (val instanceof Date) return val;
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 function requireMaster(req: any, res: any): boolean {
   const auth = req.headers.authorization as string | undefined;
@@ -69,25 +77,44 @@ router.post("/restore", async (req, res): Promise<void> => {
     let insertedScanOuts = 0;
 
     if (users.length > 0) {
-      await db.insert(usersTable).values(users);
-      insertedUsers = users.length;
+      const rows = users.map((u: any) => ({ ...u, createdAt: toDate(u.createdAt) }));
+      await db.insert(usersTable).values(rows);
+      insertedUsers = rows.length;
     }
+
     if (materials.length > 0) {
-      await db.insert(materialsTable).values(materials);
-      insertedMaterials = materials.length;
+      const rows = materials.map((m: any) => ({ ...m, createdAt: toDate(m.createdAt) }));
+      await db.insert(materialsTable).values(rows);
+      insertedMaterials = rows.length;
     }
+
     if (scanIns.length > 0) {
-      await db.insert(scanInTable).values(scanIns);
-      insertedScanIns = scanIns.length;
+      const rows = scanIns.map((s: any) => ({
+        ...s,
+        createdAt: toDate(s.createdAt),
+        completedAt: toDate(s.completedAt),
+      }));
+      await db.insert(scanInTable).values(rows);
+      insertedScanIns = rows.length;
     }
+
     if (scanItems.length > 0) {
-      await db.insert(scanItemsTable).values(scanItems);
-      insertedScanItems = scanItems.length;
+      const rows = scanItems.map((i: any) => ({ ...i, createdAt: toDate(i.createdAt) }));
+      await db.insert(scanItemsTable).values(rows);
+      insertedScanItems = rows.length;
     }
+
     if (scanOuts.length > 0) {
-      await db.insert(scanOutTable).values(scanOuts);
-      insertedScanOuts = scanOuts.length;
+      const rows = scanOuts.map((o: any) => ({ ...o, createdAt: toDate(o.createdAt) }));
+      await db.insert(scanOutTable).values(rows);
+      insertedScanOuts = rows.length;
     }
+
+    await db.execute(sql`SELECT setval('users_id_seq', COALESCE((SELECT MAX(id) FROM users), 0) + 1, false)`);
+    await db.execute(sql`SELECT setval('materials_id_seq', COALESCE((SELECT MAX(id) FROM materials), 0) + 1, false)`);
+    await db.execute(sql`SELECT setval('scan_in_id_seq', COALESCE((SELECT MAX(id) FROM scan_in), 0) + 1, false)`);
+    await db.execute(sql`SELECT setval('scan_items_id_seq', COALESCE((SELECT MAX(id) FROM scan_items), 0) + 1, false)`);
+    await db.execute(sql`SELECT setval('scan_out_id_seq', COALESCE((SELECT MAX(id) FROM scan_out), 0) + 1, false)`);
 
     res.json({
       success: true,
