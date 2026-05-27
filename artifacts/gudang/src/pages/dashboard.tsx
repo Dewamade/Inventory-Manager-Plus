@@ -188,8 +188,8 @@ export default function Dashboard() {
                 </div>
               ) : singleStat ? (
                 <div className="space-y-4">
-                  <p className="text-sm font-semibold text-muted-foreground text-center uppercase tracking-wider">
-                    {singleStat.materialName}
+                  <p className="text-sm font-semibold text-muted-foreground text-center uppercase tracking-wider font-mono">
+                    {singleStat.materialCode ?? singleStat.materialName}
                   </p>
                   <div className="grid gap-4 sm:grid-cols-3">
                     <StatBox label="Stock" value={singleStat.currentStock} color="primary" />
@@ -215,7 +215,7 @@ export default function Dashboard() {
                           className="hover:bg-muted/30 transition-colors cursor-pointer group"
                           onClick={() => setSelectedMaterialId(s.materialId)}
                         >
-                          <td className="py-3.5 px-4 font-medium group-hover:text-primary transition-colors">{s.materialName}</td>
+                          <td className="py-3.5 px-4 font-medium font-mono group-hover:text-primary transition-colors">{s.materialCode ?? s.materialName}</td>
                           <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-600 dark:text-emerald-500">{s.totalIn}</td>
                           <td className="py-3.5 px-4 text-center font-mono font-bold text-amber-600 dark:text-amber-500">{s.totalOut}</td>
                           <td className="py-3.5 px-4 text-center">
