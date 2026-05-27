@@ -78,16 +78,15 @@ export function Layout({ children }: LayoutProps) {
           </Button>
         </div>
       </aside>
-
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden bg-sidebar text-sidebar-foreground border-b p-4 flex justify-between items-center">
           <div className="flex items-center gap-2">
              <div className="bg-sidebar-primary text-sidebar-primary-foreground p-1 rounded font-bold font-mono text-sm">
-                MIG
+                SGP
              </div>
-             <span className="font-bold text-sm">GUDANG</span>
+             <span className="font-bold text-sm">SISTEM GUDANG PEMARON</span>
           </div>
         </header>
         

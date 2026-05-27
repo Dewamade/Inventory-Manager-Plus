@@ -26,10 +26,9 @@ export default function Dashboard() {
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard Operations</h2>
-        <p className="text-muted-foreground mt-1">Real-time overview of warehouse inventory.</p>
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <p className="text-muted-foreground mt-1">Tampilan Realtime Material Gudang Pemaron</p>
       </div>
-
       {/* Global Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
@@ -62,7 +61,6 @@ export default function Dashboard() {
           isLoading={isLoadingSummary}
         />
       </div>
-
       <div className="grid gap-8 grid-cols-1 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-sidebar-border shadow-sm">
@@ -94,7 +92,7 @@ export default function Dashboard() {
                 <div className="text-center p-8 text-muted-foreground">Belum ada data</div>
               ) : singleStat ? (
                 /* Single material — big 3-box display */
-                <div className="space-y-3">
+                (<div className="space-y-3">
                   <p className="text-sm font-semibold text-muted-foreground text-center uppercase tracking-wider">
                     {singleStat.materialName}
                   </p>
@@ -112,10 +110,10 @@ export default function Dashboard() {
                       <span className="text-5xl font-bold font-mono text-amber-600 dark:text-amber-500">{singleStat.totalOut}</span>
                     </div>
                   </div>
-                </div>
+                </div>)
               ) : (
                 /* All materials — table */
-                <div className="rounded-lg border border-border overflow-hidden">
+                (<div className="rounded-lg border border-border overflow-hidden">
                   <table className="w-full text-sm">
                     <thead className="bg-muted/50">
                       <tr>
@@ -143,7 +141,7 @@ export default function Dashboard() {
                   <p className="text-xs text-muted-foreground text-center py-2 bg-muted/10">
                     Klik baris untuk lihat detail material
                   </p>
-                </div>
+                </div>)
               )}
             </CardContent>
           </Card>
