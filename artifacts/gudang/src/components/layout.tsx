@@ -1,7 +1,15 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup } from "lucide-react";
+import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,10 +18,6 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
-
-  const handleLogout = () => {
-    logout();
-  };
 
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +29,32 @@ export function Layout({ children }: LayoutProps) {
     menuItems.push({ href: "/master", label: "Master", icon: Database });
     menuItems.push({ href: "/backup", label: "Backup & Restore", icon: DatabaseBackup });
   }
+
+  const AccountMenu = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="sm" className="flex items-center gap-2 h-9 px-3 hover:bg-sidebar-accent/20">
+          <UserCircle className="w-5 h-5" />
+          <span className="text-sm font-semibold max-w-[120px] truncate hidden sm:inline">{user?.username}</span>
+          <RefreshCw className="w-3.5 h-3.5 opacity-60" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuLabel className="flex flex-col gap-0.5">
+          <span className="font-semibold">{user?.username}</span>
+          <span className="text-xs text-muted-foreground capitalize font-normal">{user?.role}</span>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+          onClick={logout}
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Ganti Akun / Keluar
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -71,23 +101,30 @@ export function Layout({ children }: LayoutProps) {
           <Button 
             variant="destructive" 
             className="w-full justify-start text-sm" 
-            onClick={handleLogout}
+            onClick={logout}
           >
             <LogOut className="w-4 h-4 mr-2" />
             Keluar
           </Button>
         </div>
       </aside>
+
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden bg-sidebar text-sidebar-foreground border-b p-4 flex justify-between items-center">
+        <header className="md:hidden bg-sidebar text-sidebar-foreground border-b p-3 flex justify-between items-center">
           <div className="flex items-center gap-2">
-             <div className="bg-sidebar-primary text-sidebar-primary-foreground p-1 rounded font-bold font-mono text-sm">
-                SGP
-             </div>
-             <span className="font-bold text-sm">SISTEM GUDANG PEMARON</span>
+            <div className="bg-sidebar-primary text-sidebar-primary-foreground p-1 rounded font-bold font-mono text-sm">
+              SGP
+            </div>
+            <span className="font-bold text-sm">SISTEM GUDANG PEMARON</span>
           </div>
+          <AccountMenu />
+        </header>
+
+        {/* Desktop Top Bar */}
+        <header className="hidden md:flex items-center justify-end px-6 py-2 border-b bg-card/50">
+          <AccountMenu />
         </header>
         
         {/* Mobile Nav */}
