@@ -20,3 +20,7 @@ router.use(historyRouter);
 router.use(dashboardRouter);
 
 export default router;
+
+import backupRouter from "./backup";   // add this line
+// ... existing imports ...
+router.use(backupRouter);              // add this line at the bottom
