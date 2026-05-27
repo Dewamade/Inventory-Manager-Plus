@@ -127,22 +127,23 @@ function MaterialsTab() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Code / SKU</Label>
+                  <Label>Nama Material</Label>
                   <Input 
                     value={formData.code} 
                     onChange={e => setFormData({...formData, code: e.target.value.toUpperCase()})} 
-                    placeholder="e.g. MTR-001"
+                    placeholder="contoh: MCB 4A"
                     className="font-mono uppercase"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Name</Label>
+                  <Label>Normalisasi</Label>
                   <Input 
                     value={formData.name} 
                     onChange={e => setFormData({...formData, name: e.target.value})} 
-                    placeholder="Material Name"
+                    placeholder="contoh: 3250032"
                     required
+                    className="bg-[transparent]"
                   />
                 </div>
                 <div className="space-y-2">
