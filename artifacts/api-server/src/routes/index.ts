@@ -8,6 +8,8 @@ import scanOutRouter from "./scanOut";
 import historyRouter from "./history";
 import dashboardRouter from "./dashboard";
 import backupRouter from "./backup";
+import materialMasukRouter from "./materialMasuk";
+import materialKeluarRouter from "./materialKeluar";
 
 const router: IRouter = Router();
 
@@ -20,5 +22,7 @@ router.use(scanOutRouter);
 router.use(historyRouter);
 router.use(dashboardRouter);
 router.use(backupRouter);
+router.use(materialMasukRouter);
+router.use(materialKeluarRouter);
 
 export default router;

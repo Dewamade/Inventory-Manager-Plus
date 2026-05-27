@@ -1,6 +1,6 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup, RefreshCw } from "lucide-react";
+import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup, RefreshCw, PackagePlus, PackageMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -22,6 +22,8 @@ export function Layout({ children }: LayoutProps) {
   const menuItems = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { href: "/scan", label: "Scan Material", icon: ScanLine },
+    { href: "/material-masuk", label: "Material Masuk", icon: PackagePlus },
+    { href: "/material-keluar", label: "Material Keluar", icon: PackageMinus },
     { href: "/riwayat", label: "Riwayat", icon: History },
   ];
 

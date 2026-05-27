@@ -7,6 +7,8 @@ import Scan from "@/pages/scan";
 import Riwayat from "@/pages/riwayat";
 import Master from "@/pages/master";
 import Backup from "@/pages/backup";
+import MaterialMasuk from "@/pages/material-masuk";
+import MaterialKeluar from "@/pages/material-keluar";
 
 function ProtectedRoute({ component: Component, roles = ["user", "master"] }: { component: any, roles?: string[] }) {
   const { user, isLoading } = useAuth();
@@ -40,6 +42,8 @@ export default function AppRouter() {
           <Switch>
             <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
             <Route path="/scan" component={() => <ProtectedRoute component={Scan} />} />
+            <Route path="/material-masuk" component={() => <ProtectedRoute component={MaterialMasuk} />} />
+            <Route path="/material-keluar" component={() => <ProtectedRoute component={MaterialKeluar} />} />
             <Route path="/riwayat" component={() => <ProtectedRoute component={Riwayat} />} />
             <Route path="/master" component={() => <ProtectedRoute component={Master} roles={["master"]} />} />
             <Route path="/master/:path*" component={() => <ProtectedRoute component={Master} roles={["master"]} />} />
