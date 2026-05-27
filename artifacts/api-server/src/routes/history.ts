@@ -39,6 +39,7 @@ router.get("/history", async (req, res): Promise<void> => {
         type: "in",
         source: "scan",
         materialId: si.materialId,
+        materialCode: material?.code ?? null,
         materialName: material?.name ?? "Unknown",
         boxLabel: si.boxLabel,
         userId: si.userId,
@@ -65,6 +66,7 @@ router.get("/history", async (req, res): Promise<void> => {
       if (items.length === 0) continue;
 
       let materialId: number | null = null;
+      let materialCode: string | null = null;
       let materialName: string | null = null;
       let boxLabel: string | null = null;
       if (items[0].scanInId) {
@@ -73,6 +75,7 @@ router.get("/history", async (req, res): Promise<void> => {
           materialId = si.materialId;
           boxLabel = si.boxLabel;
           const [material] = await db.select().from(materialsTable).where(eq(materialsTable.id, si.materialId));
+          materialCode = material?.code ?? null;
           materialName = material?.name ?? null;
         }
       }
@@ -84,6 +87,7 @@ router.get("/history", async (req, res): Promise<void> => {
         type: "out",
         source: "scan",
         materialId,
+        materialCode,
         materialName,
         boxLabel,
         userId: so.userId,
@@ -113,6 +117,7 @@ router.get("/history", async (req, res): Promise<void> => {
         type: "in",
         source: "non-scan",
         materialId: nm.materialId,
+        materialCode: material?.code ?? null,
         materialName: material?.name ?? "Unknown",
         boxLabel: null,
         userId: nm.userId,
@@ -146,6 +151,7 @@ router.get("/history", async (req, res): Promise<void> => {
         type: "out",
         source: "non-scan",
         materialId: nk.materialId,
+        materialCode: material?.code ?? null,
         materialName: material?.name ?? "Unknown",
         boxLabel: null,
         userId: nk.userId,

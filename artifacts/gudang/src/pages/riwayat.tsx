@@ -408,7 +408,7 @@ export default function Riwayat() {
                               record.boxLabel || '-'
                             )}
                           </TableCell>
-                          <TableCell>{record.materialName || '-'}</TableCell>
+                          <TableCell className="font-mono">{record.materialCode || record.materialName || '-'}</TableCell>
                           <TableCell className="text-center font-bold font-mono">{qty}</TableCell>
                           <TableCell>{record.userName}</TableCell>
                           {user?.role === 'master' && (

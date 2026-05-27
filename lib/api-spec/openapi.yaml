@@ -842,6 +842,8 @@ components:
           enum: [scan, non-scan]
         materialId:
           type: ["integer", "null"]
+        materialCode:
+          type: ["string", "null"]
         materialName:
           type: ["string", "null"]
         boxLabel:
