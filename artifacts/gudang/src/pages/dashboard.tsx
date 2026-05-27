@@ -219,6 +219,10 @@ export default function Dashboard() {
 function MetricCard({ title, value, icon: Icon, isLoading, className = "", valueClass = "" }: any) {
   return (
     <Card className={`overflow-hidden ${className}`}>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium uppercase tracking-wider">{title}</CardTitle>
+        <Icon className="h-4 w-4 opacity-70" />
+      </CardHeader>
       <CardContent>
         {isLoading ? (
           <div className="h-8 flex items-center">
