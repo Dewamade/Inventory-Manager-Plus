@@ -17,10 +17,9 @@ export default function Scan() {
             <ScanLine className="w-8 h-8 text-primary" />
             Scanner Terminal
           </h2>
-          <p className="text-muted-foreground mt-1">Scan materials in and out of the warehouse.</p>
+          <p className="text-muted-foreground mt-1">Scan materials masuk dan material keluar</p>
         </div>
       </div>
-
       <Tabs value={mode} onValueChange={(v) => setMode(v as "in" | "out")} className="w-full">
         <TabsList className="grid w-full grid-cols-2 h-14 mb-6">
           <TabsTrigger value="in" className="text-base font-semibold uppercase tracking-wider data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-700 dark:data-[state=active]:bg-emerald-900/50 dark:data-[state=active]:text-emerald-400">
