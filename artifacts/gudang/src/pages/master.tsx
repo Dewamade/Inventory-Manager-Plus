@@ -553,6 +553,8 @@ function BackupTab() {
                 <span>Sesi scan-in:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanIns}</span>
                 <span>Item scan:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanItems}</span>
                 <span>Sesi scan-out:</span><span className="font-mono font-bold text-foreground">{restoreResult.scanOuts}</span>
+                <span>Material masuk (non-scan):</span><span className="font-mono font-bold text-foreground">{restoreResult.nonScanMasuk}</span>
+                <span>Material keluar (non-scan):</span><span className="font-mono font-bold text-foreground">{restoreResult.nonScanKeluar}</span>
               </div>
             </div>
           )}

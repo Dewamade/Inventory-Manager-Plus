@@ -1,0 +1,25 @@
+2026-05-29T05:15:09.28450528Z ==> Downloading cache...
+2026-05-29T05:15:09.320310312Z ==> Cloning from https://github.com/jacksatriadi-jpg/Inventory-Manager-Plus
+2026-05-29T05:15:10.487994585Z ==> Checking out commit a188c2466d78691128e632b260a5697bc4d9e53a in branch main
+2026-05-29T05:15:14.477526579Z ==> Downloaded 103MB in 2s. Extraction took 3s.
+2026-05-29T05:15:18.387359611Z ==> Using Node.js version 24.14.1 (default)
+2026-05-29T05:15:18.387373162Z ==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+2026-05-29T05:15:18.43109528Z ==> Running build command 'pnpm install --frozen-lockfile; pnpm run build'...
+2026-05-29T05:15:23.76764885Z 
+2026-05-29T05:15:23.767679702Z > workspace@0.0.0 build /opt/render/project/src
+2026-05-29T05:15:23.767687162Z > pnpm run typecheck && pnpm -r --filter "!@workspace/mockup-sandbox" --if-present run build
+2026-05-29T05:15:23.767692783Z 
+2026-05-29T05:15:24.072029318Z 
+2026-05-29T05:15:24.072051019Z > workspace@0.0.0 typecheck /opt/render/project/src
+2026-05-29T05:15:24.07205708Z > pnpm run typecheck:libs && pnpm -r --filter "./artifacts/**" --filter "!@workspace/gudang" --filter "!@workspace/mockup-sandbox" --filter "./scripts" --if-present run typecheck
+2026-05-29T05:15:24.07206043Z 
+2026-05-29T05:15:24.376531722Z 
+2026-05-29T05:15:24.376556604Z > workspace@0.0.0 typecheck:libs /opt/render/project/src
+2026-05-29T05:15:24.376562314Z > tsc --build
+2026-05-29T05:15:24.376566264Z 
+2026-05-29T05:15:27.091013441Z lib/api-zod/src/generated/api.ts(419,3): error TS1117: An object literal cannot have multiple properties with the same name.
+2026-05-29T05:15:27.148716273Z  ELIFECYCLE  Command failed with exit code 2.
+2026-05-29T05:15:27.18157428Z  ELIFECYCLE  Command failed with exit code 2.
+2026-05-29T05:15:27.211608479Z  ELIFECYCLE  Command failed with exit code 2.
+2026-05-29T05:15:27.26262449Z ==> Build failed 😞
+2026-05-29T05:15:27.262641051Z ==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
