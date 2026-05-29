@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { History, FileDown, Printer, Trash2, ArrowDownRight, ArrowUpRight, Loader2, PackagePlus, PackageMinus } from "lucide-react";
+import { History, FileDown, Printer, Trash2, ArrowDownRight, ArrowUpRight, Loader2, PackagePlus, PackageMinus, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
@@ -19,6 +20,7 @@ export default function Riwayat() {
   const { toast } = useToast();
   const [filterType, setFilterType] = useState<"all" | "in" | "out">("all");
   const [filterSource, setFilterSource] = useState<"all" | "scan" | "non-scan">("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
   const { data: history, isLoading, refetch } = useListHistory(
@@ -33,12 +35,23 @@ export default function Riwayat() {
     return history.filter(h => h.source === filterSource);
   }, [history, filterSource]);
 
-  const effectiveRecords = useMemo(() => {
-    if (selectedIds.size === 0) return filteredHistory;
-    return filteredHistory.filter(h => selectedIds.has(h.id));
-  }, [filteredHistory, selectedIds]);
+  const searchedHistory = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filteredHistory;
+    return filteredHistory.filter(h =>
+      (h.materialCode ?? "").toLowerCase().includes(q) ||
+      (h.materialName ?? "").toLowerCase().includes(q) ||
+      (h.boxLabel ?? "").toLowerCase().includes(q) ||
+      (h.userName ?? "").toLowerCase().includes(q)
+    );
+  }, [filteredHistory, searchQuery]);
 
-  const allIds = useMemo(() => filteredHistory.map(h => h.id), [filteredHistory]);
+  const effectiveRecords = useMemo(() => {
+    if (selectedIds.size === 0) return searchedHistory;
+    return searchedHistory.filter(h => selectedIds.has(h.id));
+  }, [searchedHistory, selectedIds]);
+
+  const allIds = useMemo(() => searchedHistory.map(h => h.id), [searchedHistory]);
   const allSelected = allIds.length > 0 && allIds.every(id => selectedIds.has(id));
   const someSelected = selectedIds.size > 0 && !allSelected;
 
@@ -61,7 +74,7 @@ export default function Riwayat() {
 
   const selectionLabel = selectedIds.size > 0
     ? `${selectedIds.size} dipilih`
-    : `Semua (${filteredHistory.length})`;
+    : `Semua (${searchedHistory.length})`;
 
   const handleExportXLSX = () => {
     if (effectiveRecords.length === 0) {
@@ -321,36 +334,55 @@ export default function Riwayat() {
 
       <Card className="border-sidebar-border shadow-sm">
         <CardHeader className="py-4 border-b border-border/50 bg-muted/20">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <CardTitle className="text-base font-semibold">
-              Filter & Tabel
-              {selectedIds.size > 0 && (
-                <Badge variant="secondary" className="ml-2 text-primary border-primary/30">
-                  {selectedIds.size} dipilih
-                </Badge>
+          <div className="flex flex-col gap-3 w-full">
+            <div className="flex items-center justify-between gap-4 flex-wrap">
+              <CardTitle className="text-base font-semibold">
+                Filter & Tabel
+                {selectedIds.size > 0 && (
+                  <Badge variant="secondary" className="ml-2 text-primary border-primary/30">
+                    {selectedIds.size} dipilih
+                  </Badge>
+                )}
+              </CardTitle>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={filterType} onValueChange={(v: any) => { setFilterType(v); setSelectedIds(new Set()); }}>
+                  <SelectTrigger className="w-[130px]">
+                    <SelectValue placeholder="Tipe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Tipe</SelectItem>
+                    <SelectItem value="in">Masuk</SelectItem>
+                    <SelectItem value="out">Keluar</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={filterSource} onValueChange={(v: any) => { setFilterSource(v); setSelectedIds(new Set()); }}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Sumber" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Sumber</SelectItem>
+                    <SelectItem value="scan">Scan</SelectItem>
+                    <SelectItem value="non-scan">Non-Scan</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                placeholder="Cari material, box, operator..."
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); setSelectedIds(new Set()); }}
+                className="pl-9 pr-9 h-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => { setSearchQuery(""); setSelectedIds(new Set()); }}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               )}
-            </CardTitle>
-            <div className="flex gap-2 flex-wrap">
-              <Select value={filterType} onValueChange={(v: any) => { setFilterType(v); setSelectedIds(new Set()); }}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Tipe" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Tipe</SelectItem>
-                  <SelectItem value="in">Masuk</SelectItem>
-                  <SelectItem value="out">Keluar</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={filterSource} onValueChange={(v: any) => { setFilterSource(v); setSelectedIds(new Set()); }}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Sumber" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Sumber</SelectItem>
-                  <SelectItem value="scan">Scan</SelectItem>
-                  <SelectItem value="non-scan">Non-Scan</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardHeader>
@@ -382,14 +414,17 @@ export default function Riwayat() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredHistory.length === 0 ? (
+                  {searchedHistory.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={user?.role === 'master' ? 8 : 7} className="h-32 text-center text-muted-foreground">
-                        Tidak ada transaksi ditemukan
+                        <div className="flex flex-col items-center gap-2">
+                          <Search className="w-7 h-7 opacity-30" />
+                          <span>{searchQuery ? `Tidak ada hasil untuk "${searchQuery}"` : "Tidak ada transaksi ditemukan"}</span>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredHistory.map((record) => {
+                    searchedHistory.map((record) => {
                       const isSelected = selectedIds.has(record.id);
                       const isNonScan = record.source === "non-scan";
                       const isIn = record.type === "in";

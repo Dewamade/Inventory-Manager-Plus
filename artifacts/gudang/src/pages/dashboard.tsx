@@ -1,6 +1,7 @@
 import { useGetMaterialStats, useGetRecentActivity, useListMaterials, useGetDashboardSummary } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus, Layers, FileSpreadsheet, FileText } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Activity, Loader2, PackagePlus, PackageMinus, Layers, FileSpreadsheet, FileText, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useState, useMemo } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | "all">("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: summary, isLoading: isLoadingSummary } = useGetDashboardSummary();
   const { data: materials } = useListMaterials();
@@ -24,7 +26,25 @@ export default function Dashboard() {
     return statsArray.filter(s => s.materialId === selectedMaterialId);
   }, [statsArray, selectedMaterialId]);
 
-  const singleStat = filteredStats.length === 1 ? filteredStats[0] : null;
+  const searchedStats = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filteredStats;
+    return filteredStats.filter(s =>
+      (s.materialCode ?? "").toLowerCase().includes(q) ||
+      (s.materialName ?? "").toLowerCase().includes(q)
+    );
+  }, [filteredStats, searchQuery]);
+
+  const searchedActivity = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q || !recentActivity) return recentActivity ?? [];
+    return recentActivity.filter(a =>
+      (a.materialName ?? "").toLowerCase().includes(q) ||
+      ((a as any).materialCode ?? "").toLowerCase().includes(q)
+    );
+  }, [recentActivity, searchQuery]);
+
+  const singleStat = searchedStats.length === 1 ? searchedStats[0] : null;
   const { toast } = useToast();
 
   const handleExportExcel = () => {
@@ -113,7 +133,7 @@ export default function Dashboard() {
           <p className="text-muted-foreground mt-1">Tampilan Realtime Material Gudang Pemaron</p>
         </div>
         {/* Jenis Material badge */}
-        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-5 py-3 w-fit">
+        <div className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-5 py-3 w-fit shrink-0">
           <div className="p-2 bg-primary/10 rounded-lg">
             <Layers className="w-5 h-5 text-primary" />
           </div>
@@ -128,6 +148,25 @@ export default function Dashboard() {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Search bar */}
+      <div className="relative w-full max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+        <Input
+          placeholder="Cari material..."
+          value={searchQuery}
+          onChange={e => { setSearchQuery(e.target.value); setSelectedMaterialId("all"); }}
+          className="pl-9 pr-9 h-9"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery("")}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Main Content */}
@@ -182,9 +221,10 @@ export default function Dashboard() {
                 <div className="h-48 flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : filteredStats.length === 0 ? (
-                <div className="h-48 flex items-center justify-center text-muted-foreground text-sm">
-                  Belum ada data
+              ) : searchedStats.length === 0 ? (
+                <div className="h-48 flex flex-col items-center justify-center text-muted-foreground text-sm gap-2">
+                  <Search className="w-8 h-8 opacity-30" />
+                  <span>{searchQuery ? `Tidak ada material cocok dengan "${searchQuery}"` : "Belum ada data"}</span>
                 </div>
               ) : singleStat ? (
                 <div className="space-y-4">
@@ -209,11 +249,11 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/30">
-                      {filteredStats.map((s) => (
+                      {searchedStats.map((s) => (
                         <tr
                           key={s.materialId}
                           className="hover:bg-muted/30 transition-colors cursor-pointer group"
-                          onClick={() => setSelectedMaterialId(s.materialId)}
+                          onClick={() => { setSelectedMaterialId(s.materialId); setSearchQuery(""); }}
                         >
                           <td className="py-3.5 px-4 font-medium font-mono group-hover:text-primary transition-colors">{s.materialCode ?? s.materialName}</td>
                           <td className="py-3.5 px-4 text-center font-mono font-bold text-emerald-600 dark:text-emerald-500">{s.totalIn}</td>
@@ -250,9 +290,9 @@ export default function Dashboard() {
                 <div className="p-8 flex justify-center">
                   <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
                 </div>
-              ) : recentActivity && recentActivity.length > 0 ? (
+              ) : searchedActivity.length > 0 ? (
                 <div className="divide-y divide-border/40">
-                  {recentActivity.map((activity) => {
+                  {searchedActivity.map((activity) => {
                     const isNonScan = activity.source === "non-scan";
                     const isIn = activity.type === "in";
                     const IconComp = isNonScan
@@ -296,8 +336,9 @@ export default function Dashboard() {
                   })}
                 </div>
               ) : (
-                <div className="p-8 text-center text-sm text-muted-foreground">
-                  Belum ada aktivitas
+                <div className="p-8 text-center text-sm text-muted-foreground flex flex-col items-center gap-2">
+                  <Search className="w-6 h-6 opacity-30" />
+                  <span>{searchQuery ? `Tidak ada aktivitas untuk "${searchQuery}"` : "Belum ada aktivitas"}</span>
                 </div>
               )}
             </CardContent>
