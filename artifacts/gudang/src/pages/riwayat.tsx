@@ -209,16 +209,42 @@ export default function Riwayat() {
       <head>
         <title>Cetak QR Box Labels</title>
         <style>
-          * { box-sizing: border-box; }
-          body { font-family: monospace; padding: 16px; background: #fff; }
-          .grid { display: flex; flex-wrap: wrap; gap: 16px; }
-          .card { border: 2px dashed #333; padding: 16px; text-align: center; width: 280px; break-inside: avoid; }
-          .box-label { font-size: 20px; font-weight: bold; margin-bottom: 6px; }
-          .meta { font-size: 12px; color: #555; margin-bottom: 10px; line-height: 1.5; }
-          .qr img { width: 220px; height: 220px; }
+          * { box-sizing: border-box; margin: 0; padding: 0; }
+          body { font-family: monospace; background: #fff; }
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4mm;
+            padding: 0;
+          }
+          .card {
+            border: 1px dashed #555;
+            padding: 3mm;
+            text-align: center;
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
+          .box-label {
+            font-size: 8pt;
+            font-weight: bold;
+            margin-bottom: 1.5mm;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+          .meta {
+            font-size: 6pt;
+            color: #444;
+            margin-bottom: 2mm;
+            line-height: 1.4;
+          }
+          .qr img { width: 100%; height: auto; display: block; }
           @media print {
-            .card { page-break-inside: avoid; }
-            @page { margin: 10mm; }
+            @page { size: A4 portrait; margin: 8mm; }
+            body { margin: 0; }
+          }
+          @media screen {
+            body { padding: 10mm; }
           }
         </style>
       </head>
@@ -227,15 +253,14 @@ export default function Riwayat() {
 
     for (const record of inRecords) {
       const qrText = record.serialNumbers.join('\n');
-      const dataUrl = await QRCode.toDataURL(qrText, { margin: 1, width: 220 });
+      const dataUrl = await QRCode.toDataURL(qrText, { margin: 1, width: 180 });
       html += `
         <div class="card">
           <div class="box-label">${record.boxLabel || '-'}</div>
           <div class="meta">
-            ${record.materialName || '-'}<br/>
-            ${record.serialNumbers.length} item<br/>
-            ${format(new Date(record.createdAt), "dd/MM/yyyy HH:mm")}<br/>
-            Operator: ${record.userName}
+            ${record.materialCode || record.materialName || '-'}<br/>
+            ${record.serialNumbers.length} item &bull; ${format(new Date(record.createdAt), "dd/MM/yy")}<br/>
+            ${record.userName}
           </div>
           <div class="qr"><img src="${dataUrl}" /></div>
         </div>

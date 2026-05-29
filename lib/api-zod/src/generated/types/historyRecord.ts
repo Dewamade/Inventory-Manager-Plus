@@ -15,6 +15,8 @@ export interface HistoryRecord {
   /** @nullable */
   materialId: number | null;
   /** @nullable */
+  materialCode?: string | null;
+  /** @nullable */
   materialName: string | null;
   /** @nullable */
   boxLabel: string | null;
