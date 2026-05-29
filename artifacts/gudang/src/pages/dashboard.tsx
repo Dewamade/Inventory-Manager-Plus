@@ -147,7 +147,7 @@ export default function Dashboard() {
                     <SelectTrigger className="h-9 text-sm">
                       <SelectValue placeholder="Semua Material" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[50vh] overflow-y-auto">
                       <SelectItem value="all">Semua Material</SelectItem>
                       {materials?.map((m) => (
                         <SelectItem key={m.id} value={m.id.toString()}>{m.code} — {m.name}</SelectItem>
@@ -198,8 +198,8 @@ export default function Dashboard() {
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-border/50 overflow-hidden">
-                  <table className="w-full text-sm">
+                <div className="rounded-xl border border-border/50 overflow-hidden overflow-x-auto">
+                  <table className="w-full min-w-[360px] text-sm">
                     <thead>
                       <tr className="bg-muted/40 border-b border-border/40">
                         <th className="text-left py-3 px-4 font-semibold text-muted-foreground uppercase tracking-wider text-xs">Material</th>

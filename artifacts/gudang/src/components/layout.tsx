@@ -59,7 +59,7 @@ export function Layout({ children }: LayoutProps) {
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-[100dvh] bg-background overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-sidebar text-sidebar-foreground border-r flex flex-col hidden md:flex">
         <div className="p-4 border-b border-sidebar-border bg-sidebar-primary text-sidebar-primary-foreground flex items-center gap-3">
@@ -109,7 +109,7 @@ export function Layout({ children }: LayoutProps) {
         </div>
       </aside>
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Mobile Header */}
         <header className="md:hidden bg-sidebar text-sidebar-foreground border-b p-3 flex justify-between items-center">
           <div className="flex items-center gap-2">

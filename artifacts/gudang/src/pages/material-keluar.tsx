@@ -149,7 +149,7 @@ export default function MaterialKeluar() {
                   <SelectTrigger id="material">
                     <SelectValue placeholder="— Pilih material —" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-[50vh] overflow-y-auto">
                     {stockList.map((s) => (
                       <SelectItem key={s.materialId} value={s.materialId.toString()} disabled={s.stock <= 0}>
                         <span className="font-mono text-xs mr-2 text-muted-foreground">{s.materialCode}</span>

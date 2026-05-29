@@ -368,7 +368,7 @@ export default function ScanInView() {
                     <SelectTrigger className="h-12 font-mono">
                       <SelectValue placeholder="Pilih Material..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[50vh] overflow-y-auto">
                       {materials?.filter(m => (m as any).kategori === 'scan' || !(m as any).kategori).map(m => (
                         <SelectItem key={m.id} value={m.id.toString()}>{m.code} - {m.name}</SelectItem>
                       ))}

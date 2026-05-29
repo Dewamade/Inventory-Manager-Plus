@@ -131,7 +131,7 @@ export default function MaterialMasuk() {
                 <SelectTrigger id="material">
                   <SelectValue placeholder="— Pilih material —" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[50vh] overflow-y-auto">
                   {materials?.filter((m) => (m as any).kategori === 'non-scan').map((m) => (
                     <SelectItem key={m.id} value={m.id.toString()}>
                       <span className="font-mono text-xs mr-2 text-muted-foreground">{m.code}</span>
