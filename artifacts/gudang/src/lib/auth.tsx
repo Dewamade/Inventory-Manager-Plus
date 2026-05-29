@@ -1,18 +1,22 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { User } from "@workspace/api-client-react";
 
+export type AppUser = User | { id: 0; username: string; role: "guest"; createdAt: string };
+
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   token: string | null;
   login: (token: string, user: User) => void;
+  loginAsGuest: () => void;
   logout: () => void;
   isLoading: boolean;
+  isGuest: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AppUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,6 +42,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(newUser);
   };
 
+  const loginAsGuest = () => {
+    setToken(null);
+    setUser({ id: 0, username: "Tamu", role: "guest", createdAt: new Date().toISOString() });
+  };
+
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("currentUser");
@@ -46,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, token, login, loginAsGuest, logout, isLoading, isGuest: user?.role === "guest" }}>
       {children}
     </AuthContext.Provider>
   );
@@ -54,8 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }

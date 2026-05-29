@@ -1,6 +1,7 @@
 import { useAuth } from "@/lib/auth";
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup, RefreshCw, PackagePlus, PackageMinus } from "lucide-react";
+import { LayoutDashboard, ScanLine, History, Database, LogOut, UserCircle, DatabaseBackup, RefreshCw, PackagePlus, PackageMinus, Eye } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -19,18 +20,24 @@ export function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth();
   const [location] = useLocation();
 
-  const menuItems = [
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/scan", label: "Scan Material", icon: ScanLine },
-    { href: "/material-masuk", label: "Material Masuk", icon: PackagePlus },
-    { href: "/material-keluar", label: "Material Keluar", icon: PackageMinus },
-    { href: "/riwayat", label: "Riwayat", icon: History },
-  ];
+  const isGuest = user?.role === "guest";
 
-  if (user?.role === "master") {
-    menuItems.push({ href: "/master", label: "Master", icon: Database });
-    menuItems.push({ href: "/backup", label: "Backup & Restore", icon: DatabaseBackup });
-  }
+  const menuItems = isGuest
+    ? [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/riwayat", label: "Riwayat", icon: History },
+      ]
+    : [
+        { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { href: "/scan", label: "Scan Material", icon: ScanLine },
+        { href: "/material-masuk", label: "Material Masuk", icon: PackagePlus },
+        { href: "/material-keluar", label: "Material Keluar", icon: PackageMinus },
+        { href: "/riwayat", label: "Riwayat", icon: History },
+        ...(user?.role === "master" ? [
+          { href: "/master", label: "Master", icon: Database },
+          { href: "/backup", label: "Backup & Restore", icon: DatabaseBackup },
+        ] : []),
+      ];
 
   const AccountMenu = () => (
     <DropdownMenu>
@@ -69,7 +76,12 @@ export function Layout({ children }: LayoutProps) {
             <p className="text-xs opacity-80 uppercase tracking-widest">pemaron</p>
           </div>
         </div>
-        
+        {isGuest && (
+          <div className="px-3 py-2 bg-amber-500/20 border-b border-amber-500/30 flex items-center gap-2">
+            <Eye className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="text-xs text-amber-300 font-medium">Mode Tamu — Baca Saja</span>
+          </div>
+        )}
         <nav className="flex-1 overflow-y-auto p-4 space-y-1">
           {menuItems.map((item) => {
             const isActive = location === item.href || location.startsWith(`${item.href}/`);
@@ -92,19 +104,24 @@ export function Layout({ children }: LayoutProps) {
 
         <div className="p-4 border-t border-sidebar-border">
           <div className="flex items-center gap-3 mb-4">
-            <UserCircle className="w-8 h-8 text-sidebar-accent-foreground opacity-70" />
+            {isGuest
+              ? <Eye className="w-8 h-8 text-amber-400/70" />
+              : <UserCircle className="w-8 h-8 text-sidebar-accent-foreground opacity-70" />
+            }
             <div>
               <p className="text-sm font-semibold">{user?.username}</p>
-              <p className="text-xs text-sidebar-accent-foreground capitalize opacity-70">{user?.role}</p>
+              <p className="text-xs text-sidebar-accent-foreground capitalize opacity-70">
+                {isGuest ? "tamu" : user?.role}
+              </p>
             </div>
           </div>
-          <Button 
-            variant="destructive" 
-            className="w-full justify-start text-sm" 
+          <Button
+            variant={isGuest ? "outline" : "destructive"}
+            className={`w-full justify-start text-sm ${isGuest ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10 hover:text-amber-300" : ""}`}
             onClick={logout}
           >
             <LogOut className="w-4 h-4 mr-2" />
-            Keluar
+            {isGuest ? "Keluar dari Mode Tamu" : "Keluar"}
           </Button>
         </div>
       </aside>

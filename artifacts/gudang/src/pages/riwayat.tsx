@@ -16,7 +16,7 @@ import QRCode from "qrcode";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Riwayat() {
-  const { user } = useAuth();
+  const { user, isGuest } = useAuth();
   const { toast } = useToast();
   const [filterType, setFilterType] = useState<"all" | "in" | "out">("all");
   const [filterSource, setFilterSource] = useState<"all" | "scan" | "non-scan">("all");
@@ -307,29 +307,33 @@ export default function Riwayat() {
             <History className="w-8 h-8 text-primary" />
             Riwayat Transaksi
           </h2>
-          <p className="text-muted-foreground mt-1">
-            {selectedIds.size > 0
-              ? <span className="text-primary font-medium">{selectedIds.size} record dipilih — export/cetak hanya yang dipilih</span>
-              : "Pilih baris untuk export/cetak selektif, atau biarkan kosong untuk semua."}
-          </p>
+          {!isGuest && (
+            <p className="text-muted-foreground mt-1">
+              {selectedIds.size > 0
+                ? <span className="text-primary font-medium">{selectedIds.size} record dipilih — export/cetak hanya yang dipilih</span>
+                : "Pilih baris untuk export/cetak selektif, atau biarkan kosong untuk semua."}
+            </p>
+          )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {selectedIds.size > 0 && (
-            <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="text-muted-foreground text-xs">
-              Batal pilih
+        {!isGuest && (
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedIds.size > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())} className="text-muted-foreground text-xs">
+                Batal pilih
+              </Button>
+            )}
+            <Button variant="outline" onClick={handlePrintQR} title={`Cetak QR (${selectionLabel})`}>
+              <Printer className="w-4 h-4 mr-2" /> Cetak QR
             </Button>
-          )}
-          <Button variant="outline" onClick={handlePrintQR} title={`Cetak QR (${selectionLabel})`}>
-            <Printer className="w-4 h-4 mr-2" /> Cetak QR
-          </Button>
-          <Button variant="outline" onClick={handleExportPDF} title={`Export PDF (${selectionLabel})`}>
-            <FileDown className="w-4 h-4 mr-2" /> PDF
-          </Button>
-          <Button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-700 text-white" title={`Export Excel (${selectionLabel})`}>
-            <FileDown className="w-4 h-4 mr-2" /> Excel
-          </Button>
-        </div>
+            <Button variant="outline" onClick={handleExportPDF} title={`Export PDF (${selectionLabel})`}>
+              <FileDown className="w-4 h-4 mr-2" /> PDF
+            </Button>
+            <Button onClick={handleExportXLSX} className="bg-emerald-600 hover:bg-emerald-700 text-white" title={`Export Excel (${selectionLabel})`}>
+              <FileDown className="w-4 h-4 mr-2" /> Excel
+            </Button>
+          </div>
+        )}
       </div>
 
       <Card className="border-sidebar-border shadow-sm">
@@ -396,6 +400,7 @@ export default function Riwayat() {
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
+                    {!isGuest && (
                     <TableHead className="w-10 pl-4">
                       <Checkbox
                         checked={allSelected}
@@ -404,6 +409,7 @@ export default function Riwayat() {
                         className={someSelected ? "data-[state=unchecked]:bg-primary/20" : ""}
                       />
                     </TableHead>
+                  )}
                     <TableHead className="w-[130px]">Tipe</TableHead>
                     <TableHead>Tanggal & Waktu</TableHead>
                     <TableHead>Box / Keterangan</TableHead>
@@ -416,7 +422,7 @@ export default function Riwayat() {
                 <TableBody>
                   {searchedHistory.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={user?.role === 'master' ? 8 : 7} className="h-32 text-center text-muted-foreground">
+                      <TableCell colSpan={isGuest ? 6 : (user?.role === 'master' ? 8 : 7)} className="h-32 text-center text-muted-foreground">
                         <div className="flex flex-col items-center gap-2">
                           <Search className="w-7 h-7 opacity-30" />
                           <span>{searchQuery ? `Tidak ada hasil untuk "${searchQuery}"` : "Tidak ada transaksi ditemukan"}</span>
@@ -435,16 +441,18 @@ export default function Riwayat() {
                       return (
                         <TableRow
                           key={record.id}
-                          className={`cursor-pointer transition-colors ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10'}`}
-                          onClick={() => toggleOne(record.id)}
+                          className={`transition-colors ${isGuest ? '' : 'cursor-pointer'} ${isSelected ? 'bg-primary/5 hover:bg-primary/10' : 'hover:bg-muted/10'}`}
+                          onClick={() => !isGuest && toggleOne(record.id)}
                         >
-                          <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleOne(record.id)}
-                              aria-label="Pilih baris ini"
-                            />
-                          </TableCell>
+                          {!isGuest && (
+                            <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                              <Checkbox
+                                checked={isSelected}
+                                onCheckedChange={() => toggleOne(record.id)}
+                                aria-label="Pilih baris ini"
+                              />
+                            </TableCell>
+                          )}
                           <TableCell>
                             <div className="flex flex-col gap-1">
                               {isIn ? (

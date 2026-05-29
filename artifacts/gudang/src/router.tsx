@@ -10,7 +10,7 @@ import Backup from "@/pages/backup";
 import MaterialMasuk from "@/pages/material-masuk";
 import MaterialKeluar from "@/pages/material-keluar";
 
-function ProtectedRoute({ component: Component, roles = ["user", "master"] }: { component: any, roles?: string[] }) {
+function ProtectedRoute({ component: Component, roles = ["user", "master", "guest"] }: { component: any, roles?: string[] }) {
   const { user, isLoading } = useAuth();
   
   if (isLoading) {
@@ -40,11 +40,11 @@ export default function AppRouter() {
       <Route path="/:path*">
         <Layout>
           <Switch>
-            <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} />} />
-            <Route path="/scan" component={() => <ProtectedRoute component={Scan} />} />
-            <Route path="/material-masuk" component={() => <ProtectedRoute component={MaterialMasuk} />} />
-            <Route path="/material-keluar" component={() => <ProtectedRoute component={MaterialKeluar} />} />
-            <Route path="/riwayat" component={() => <ProtectedRoute component={Riwayat} />} />
+            <Route path="/dashboard" component={() => <ProtectedRoute component={Dashboard} roles={["user", "master", "guest"]} />} />
+            <Route path="/scan" component={() => <ProtectedRoute component={Scan} roles={["user", "master"]} />} />
+            <Route path="/material-masuk" component={() => <ProtectedRoute component={MaterialMasuk} roles={["user", "master"]} />} />
+            <Route path="/material-keluar" component={() => <ProtectedRoute component={MaterialKeluar} roles={["user", "master"]} />} />
+            <Route path="/riwayat" component={() => <ProtectedRoute component={Riwayat} roles={["user", "master", "guest"]} />} />
             <Route path="/master" component={() => <ProtectedRoute component={Master} roles={["master"]} />} />
             <Route path="/master/:path*" component={() => <ProtectedRoute component={Master} roles={["master"]} />} />
             <Route path="/backup" component={() => <ProtectedRoute component={Backup} roles={["master"]} />} />
